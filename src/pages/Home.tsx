@@ -412,27 +412,56 @@ export default function Home() {
       .slice(0, 10);
   }, [filteredData]);
 
+  // Categorias de compromisso válidas para KPIs Fechada e Ganha / Perdida
+  const VALID_KPI_CATEGORIES = new Set([
+    'Demonstracao Presencial',
+    'Demonstracao Remota',
+    'Analise de aderencia',
+    'Analise de RFP/RFI',
+    'ETN Apoio',
+    'Termo de Referencia',
+    'Edital',
+    'Analise arquiteto de software - Exclusivo GTN',
+  ]);
+
   // KPIs filtrados - ITEM 10: usar valorUnificado
+  // Fechada e Ganha / Perdida: apenas OPs com pelo menos 1 compromisso de categoria válida
   const filteredKPIs = useMemo(() => {
     if (!kpis) return null;
     const normalizeKPI = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+    // Construir set de OPs com categorias válidas (para Ganhas/Perdidas)
+    const validCatOppIds = new Set<string>();
     // Construir set de OPs com demonstração (para Taxa de Conversão)
     const demoOppKeys = new Set<string>();
+
     if (actions.length > 0) {
       for (const a of actions) {
-        const cat = normalizeKPI((a['Categoria'] || '').toString());
-        if (cat.includes('demonstracao') && (cat.includes('presencial') || cat.includes('remota'))) {
-          const oppId = (a['Oportunidade ID'] || '').toString().trim();
-          if (oppId) demoOppKeys.add(oppId);
+        const categoria = (a['Categoria'] || '').toString().trim();
+        const oppId = (a['Oportunidade ID'] || '').toString().trim();
+        if (!oppId) continue;
+
+        // Categorias válidas para KPIs Fechada e Ganha / Perdida
+        if (VALID_KPI_CATEGORIES.has(categoria)) {
+          validCatOppIds.add(oppId);
+        }
+
+        // Demo para Taxa de Conversão
+        const catNorm = normalizeKPI(categoria);
+        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+          demoOppKeys.add(oppId);
         }
       }
     } else {
-      // Cache: usar categoriaCompromisso dos records
+      // Cache: usar categoriaCompromisso dos records (limitado à categoria mais frequente)
       for (const r of filteredData) {
         if (!r.categoriaCompromisso) continue;
-        const cat = normalizeKPI(r.categoriaCompromisso);
-        if (cat.includes('demonstracao') && (cat.includes('presencial') || cat.includes('remota'))) {
+        const cat = r.categoriaCompromisso.trim();
+        if (VALID_KPI_CATEGORIES.has(cat)) {
+          validCatOppIds.add(r.oppId);
+        }
+        const catNorm = normalizeKPI(cat);
+        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
           demoOppKeys.add(r.oppId);
         }
       }
@@ -451,12 +480,14 @@ export default function Home() {
     for (const r of filteredData) {
       if (!seenOps.has(r.oppId)) {
         seenOps.add(r.oppId);
-        if (r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR') {
+        // Fechada e Ganha: só conta se OP tem compromisso com categoria válida
+        if ((r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR') && validCatOppIds.has(r.oppId)) {
           seenGanhas.add(r.oppId);
           ganhasValor += (r.valorUnificado ?? r.valorFechadoReconhecido ?? r.valorFechado);
           if (demoOppKeys.has(r.oppId)) seenGanhasDemo.add(r.oppId);
         }
-        if (r.etapa === 'Fechada e Perdida') {
+        // Fechada e Perdida: só conta se OP tem compromisso com categoria válida
+        if (r.etapa === 'Fechada e Perdida' && validCatOppIds.has(r.oppId)) {
           seenPerdidas.add(r.oppId);
           perdidasValor += (r.valorUnificado ?? r.valorReconhecido ?? r.valorPrevisto);
           if (demoOppKeys.has(r.oppId)) seenPerdidasDemo.add(r.oppId);
@@ -499,6 +530,9 @@ export default function Home() {
     try {
       const workerRes = await processFilesWithWorker(oppFile, actFile);
       setWorkerResult(workerRes);
+      // Setar dados brutos para useGoalMetricsProcessor
+      if (workerRes?.rawOpportunities) setOpportunities(workerRes.rawOpportunities);
+      if (workerRes?.rawActions) setActions(workerRes.rawActions);
       // Processar metas e pedidos automaticamente se arquivos foram selecionados
       if (goalFile) {
         try {
@@ -621,6 +655,9 @@ export default function Home() {
           },
         };
         setWorkerResult(cleanedResult);
+        // Restaurar dados brutos do cache para goal metrics
+        if (cached.result.rawOpportunities) setOpportunities(cached.result.rawOpportunities);
+        if (cached.result.rawActions) setActions(cached.result.rawActions);
       } else {
         setError('Cache não encontrado ou corrompido. Faça upload dos arquivos novamente.');
       }

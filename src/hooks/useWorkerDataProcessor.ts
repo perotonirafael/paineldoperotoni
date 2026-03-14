@@ -9,6 +9,8 @@ export interface WorkerResult {
   funnelData: any[];
   forecastFunnel: any[];
   etnTop10: any[];
+  rawOpportunities?: any[];
+  rawActions?: any[];
 }
 
 export interface WorkerProgress {

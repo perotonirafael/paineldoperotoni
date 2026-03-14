@@ -701,6 +701,16 @@ function processData(opportunities: any[], actions: any[]) {
   };
 }
 
+// Wrapper that also returns raw data for goal metrics processing
+function processDataWithRaw(opportunities: any[], actions: any[]) {
+  const result = processData(opportunities, actions);
+  return {
+    ...result,
+    rawOpportunities: opportunities,
+    rawActions: actions,
+  };
+}
+
 // ====== MESSAGE HANDLER ======
 
 self.onmessage = (event: MessageEvent) => {
@@ -708,7 +718,7 @@ self.onmessage = (event: MessageEvent) => {
 
   if (type === 'process') {
     try {
-      const result = processData(event.data.opportunities, event.data.actions);
+      const result = processDataWithRaw(event.data.opportunities, event.data.actions);
       self.postMessage({ type: 'result', ...result });
     } catch (error) {
       self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' });
@@ -766,7 +776,7 @@ self.onmessage = (event: MessageEvent) => {
 
       self.postMessage({ type: 'progress', stage: 'processing', progress: 75, message: 'Processando dados...' });
 
-      const result = processData(opportunities, actions);
+      const result = processDataWithRaw(opportunities, actions);
 
       self.postMessage({ type: 'progress', stage: 'done', progress: 95, message: 'Finalizando...' });
       self.postMessage({ type: 'result', ...result });
