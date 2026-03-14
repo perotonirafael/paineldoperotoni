@@ -624,10 +624,10 @@ export default function Home() {
 
   // Processar metas automaticamente quando ambos arquivos são selecionados
   useEffect(() => {
-    if (goalFile && pedidoFile) {
+    if (processedData.length > 0 && goalFile && pedidoFile) {
       handleLoadGoals();
     }
-  }, [goalFile, pedidoFile, handleLoadGoals]);
+  }, [processedData.length, goalFile, pedidoFile, handleLoadGoals]);
 
   const handleLoadCache = useCallback(async () => {
     setIsLoadingCache(true);
