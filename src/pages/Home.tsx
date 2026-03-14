@@ -195,22 +195,14 @@ export default function Home() {
   const etnConversionTop10 = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return [];
 
-    // Função auxiliar de normalização
-    const normalize = (v: string) => v
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-
     // Construir set de OppIds que têm demonstração (Presencial ou Remota)
     const demoOppIds = new Set<string>();
 
     if (actions.length > 0) {
       // Upload direto ou demo: usar actions
       for (const a of actions) {
-        const categoria = normalize((a['Categoria'] || '').toString());
-        const isDemo = categoria.includes('demonstracao') && (categoria.includes('presencial') || categoria.includes('remota'));
-        if (!isDemo) continue;
+        const categoria = (a['Categoria'] || '').toString();
+        if (!isDemoCommitmentCategory(categoria)) continue;
         const oppId = (a['Oportunidade ID'] || '').toString().trim();
         if (!oppId) continue;
         demoOppIds.add(oppId);
@@ -219,8 +211,7 @@ export default function Home() {
       // Cache: varrer TODOS os records para encontrar quais OPs têm demo
       for (const r of filteredData) {
         if (!r.categoriaCompromisso) continue;
-        const catNorm = normalize(r.categoriaCompromisso);
-        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+        if (isDemoCommitmentCategory(r.categoriaCompromisso)) {
           demoOppIds.add(r.oppId);
         }
       }
