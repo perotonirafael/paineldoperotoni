@@ -1217,7 +1217,7 @@ export default function Home() {
         )}
 
         {/* Análise Comparativa de ETNs */}
-        {opportunities.length > 0 && (
+        {processedData.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">Análise Comparativa de ETNs</h2>
             <ETNComparativeAnalysis data={filteredData} actions={actions} />
