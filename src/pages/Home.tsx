@@ -617,11 +617,17 @@ export default function Home() {
     setError(null);
     try {
       const goalsData = await parseGoalsFile(goalFile);
-      const pedidosData = await parsePedidosFile(pedidoFile);
       setGoals(goalsData);
-      setPedidos(pedidosData);
+      console.log('[GOALS_LOAD] Goals parsed successfully:', goalsData.length);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao processar metas e pedidos');
+      console.warn('[GOALS_LOAD] Erro ao processar metas:', err);
+    }
+    try {
+      const pedidosData = await parsePedidosFile(pedidoFile);
+      setPedidos(pedidosData);
+      console.log('[GOALS_LOAD] Pedidos parsed successfully:', pedidosData.length);
+    } catch (err) {
+      console.warn('[GOALS_LOAD] Erro ao processar pedidos:', err);
     }
   }, [goalFile, pedidoFile, parseGoalsFile, parsePedidosFile]);
 

@@ -78,7 +78,9 @@ export const useGoalProcessor = () => {
       reader.onload = (e) => {
         try {
           const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'array' });
+          // CRITICAL: XLSX.read with type 'array' expects Uint8Array, not raw ArrayBuffer
+          const uint8 = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+          const workbook = XLSX.read(uint8, { type: 'array' });
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(worksheet) as any[];
 
