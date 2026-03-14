@@ -718,7 +718,7 @@ self.onmessage = (event: MessageEvent) => {
 
   if (type === 'process') {
     try {
-      const result = processData(event.data.opportunities, event.data.actions);
+      const result = processDataWithRaw(event.data.opportunities, event.data.actions);
       self.postMessage({ type: 'result', ...result });
     } catch (error) {
       self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' });
