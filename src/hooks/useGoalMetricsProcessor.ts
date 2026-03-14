@@ -2,10 +2,9 @@ import { useMemo } from 'react';
 import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
 import type { ProcessedRecord } from './useDataProcessor';
 import type { Action, Opportunity } from './useDataProcessor';
+import { findHeaderByCandidates } from '@/lib/headerMatching';
+import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 
-/**
- * Normalize string for comparison: remove accents, lowercase, trim.
- */
 function norm(s: string): string {
   return (s || '')
     .normalize('NFD')
@@ -14,60 +13,61 @@ function norm(s: string): string {
     .trim();
 }
 
-/**
- * Valid commitment categories for goal calculation.
- * Stored normalized for comparison.
- */
-const VALID_CATEGORIES_NORMALIZED = new Set([
-  'demonstracao presencial',
-  'demonstracao remota',
-  'analise de aderencia',
-  'analise de rfp/rfi',
-  'etn apoio',
-  'termo de referencia',
-  'edital',
-  'analise arquiteto de software - exclusivo gtn',
-]);
+const SIMULATED_GOAL_USERS: Record<string, string> = {
+  '11124': 'Rafael Perotoni',
+};
 
-function isValidCategory(categoria: string): boolean {
-  return VALID_CATEGORIES_NORMALIZED.has(norm(categoria));
+function resolveColumns(rows: Record<string, any>[], type: 'actions' | 'opportunities') {
+  const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+  if (type === 'actions') {
+    return {
+      userId: findHeaderByCandidates(headers, ['Id Usuário ERP', 'Id Usuario ERP', 'ID USUARIO ERP']),
+      userName: findHeaderByCandidates(headers, ['Usuario', 'Usuário', 'Usuário Ação', 'Responsavel', 'Responsável']),
+      category: findHeaderByCandidates(headers, ['Categoria']),
+      oppId: findHeaderByCandidates(headers, ['Oportunidade ID', 'ID OPORTUNIDADE']),
+    };
+  }
+
+  return {
+    oppId: findHeaderByCandidates(headers, ['Oportunidade ID', 'ID OPORTUNIDADE']),
+    stage: findHeaderByCandidates(headers, ['Etapa']),
+    responsible: findHeaderByCandidates(headers, ['Responsável', 'Responsavel', 'PROPRIETARIO OPORTUNIDADE']),
+    userId: findHeaderByCandidates(headers, ['Id ERP Usuário', 'Id ERP Usuario', 'ID ERP PROPRIETARIO']),
+  };
 }
 
-/**
- * Processa metas e pedidos para calcular % de atingimento.
- *
- * Fluxo:
- * 1. Construir mapa userErpId → ETN name (via actions + opportunities)
- * 2. Filtrar compromissos (actions) com categorias válidas → obter oppIds
- * 3. Filtrar oportunidades com status "Fechada e Ganha" → intersectar com oppIds
- * 4. Somar pedidos ligados a essas oportunidades filtradas
- * 5. Calcular % de atingimento com pesos (50% Lic+Serv, 50% Recorrente)
- */
+function getField(row: Record<string, any>, key?: string): string {
+  if (!key) return '';
+  const value = row[key];
+  return value === undefined || value === null ? '' : String(value).trim();
+}
+
 export const useGoalMetricsProcessor = (
   goals: GoalRecord[],
   pedidos: PedidoRecord[],
   processedData: ProcessedRecord[],
   selectedPeriod: string,
   actions: Action[],
-  opportunities: Opportunity[]
+  opportunities: Opportunity[],
 ) => {
   const metricas = useMemo((): GoalMetrics[] => {
     const periodToMonths: Record<string, string[]> = {
-      'Janeiro': ['Janeiro'],
-      'Fevereiro': ['Fevereiro'],
-      'Março': ['Março'],
+      Janeiro: ['Janeiro'],
+      Fevereiro: ['Fevereiro'],
+      Março: ['Março'],
       '1ºTrimestre': ['Janeiro', 'Fevereiro', 'Março'],
-      'Abril': ['Abril'],
-      'Maio': ['Maio'],
-      'Junho': ['Junho'],
+      Abril: ['Abril'],
+      Maio: ['Maio'],
+      Junho: ['Junho'],
       '2ºTrimestre': ['Abril', 'Maio', 'Junho'],
-      'Julho': ['Julho'],
-      'Agosto': ['Agosto'],
-      'Setembro': ['Setembro'],
+      Julho: ['Julho'],
+      Agosto: ['Agosto'],
+      Setembro: ['Setembro'],
       '3ºTrimestre': ['Julho', 'Agosto', 'Setembro'],
-      'Outubro': ['Outubro'],
-      'Novembro': ['Novembro'],
-      'Dezembro': ['Dezembro'],
+      Outubro: ['Outubro'],
+      Novembro: ['Novembro'],
+      Dezembro: ['Dezembro'],
       '4ºTrimestre': ['Outubro', 'Novembro', 'Dezembro'],
     };
 
@@ -77,54 +77,54 @@ export const useGoalMetricsProcessor = (
       return [];
     }
 
-    // ── Build User ERP ID → ETN Name mapping ──
+    const actionCols = resolveColumns(actions, 'actions');
+    const oppCols = resolveColumns(opportunities, 'opportunities');
+
+    console.log('[GOAL_METRICS] Column mapping', {
+      actionCols,
+      oppCols,
+      actionsCount: actions.length,
+      opportunitiesCount: opportunities.length,
+      pedidosCount: pedidos.length,
+      processedDataCount: processedData.length,
+    });
+
+    // 1) Mapear user ERP ID -> ETN
     const userIdToName = new Map<string, string>();
 
-    // From actions: "Id Usuário ERP" → "Usuario"
-    for (const action of actions) {
-      const userId = String(action['Id Usuário ERP'] || action['Id Usuario ERP'] || '').trim();
-      const userName = String(action['Usuario'] || action['Usuário'] || '').trim();
+    for (const action of actions as Record<string, any>[]) {
+      const userId = getField(action, actionCols.userId);
+      const userName = getField(action, actionCols.userName);
       if (userId && userId !== '0' && userName) {
         userIdToName.set(userId, userName);
       }
     }
 
-    // From opportunities: "Id ERP Usuário" → "Responsável"
-    for (const opp of opportunities) {
-      const userId = String(opp['Id ERP Usuário'] || opp['Id ERP Usuario'] || '').trim();
-      const userName = String(opp['Responsável'] || opp['Responsavel'] || '').trim();
-      if (userId && userId !== '0' && userName) {
-        if (!userIdToName.has(userId)) {
-          userIdToName.set(userId, userName);
-        }
+    for (const opp of opportunities as Record<string, any>[]) {
+      const userId = getField(opp, oppCols.userId);
+      const userName = getField(opp, oppCols.responsible);
+      if (userId && userId !== '0' && userName && !userIdToName.has(userId)) {
+        userIdToName.set(userId, userName);
+      }
+    }
+
+    const goalUserIds = new Set(goals.map((g) => g.idUsuario));
+    const goalUserNames = new Map<string, string>();
+
+    for (const userId of goalUserIds) {
+      const mapped = userIdToName.get(userId) || SIMULATED_GOAL_USERS[userId];
+      if (mapped) {
+        goalUserNames.set(userId, mapped);
       }
     }
 
     console.log('[GOAL_METRICS] User ID → Name mapping:', Object.fromEntries(userIdToName));
+    console.log('[GOAL_METRICS] Goal users resolved:', Object.fromEntries(goalUserNames));
 
-    // ── Identify goal user's ETN name ──
-    const goalUserIds = new Set(goals.map(g => g.idUsuario));
-    const goalUserNames = new Map<string, string>();
-    for (const userId of goalUserIds) {
-      const name = userIdToName.get(userId);
-      if (name) {
-        goalUserNames.set(userId, name);
-        console.log(`[GOAL_METRICS] Goal user ${userId} = "${name}"`);
-      } else {
-        console.warn(`[GOAL_METRICS] Could not find ETN name for goal user ID "${userId}". Available IDs:`, Array.from(userIdToName.keys()).slice(0, 20));
-      }
-    }
+    // 2) Metas do período
+    const hasTotalGestao = goals.some((g) => norm(g.produto).includes('total'));
+    const filteredGoals = hasTotalGestao ? goals.filter((g) => norm(g.produto).includes('total')) : goals;
 
-    // ── Filter goals: avoid double-counting ──
-    // If "Total Gestão" rows exist, use only those. Otherwise use individual products.
-    const hasTotalGestao = goals.some(g => norm(g.produto).includes('total'));
-    const filteredGoals = hasTotalGestao
-      ? goals.filter(g => norm(g.produto).includes('total'))
-      : goals;
-
-    console.log(`[GOAL_METRICS] Using ${filteredGoals.length} goal rows (hasTotalGestao=${hasTotalGestao})`);
-
-    // ── Calculate target for selected period ──
     let metaTotalLicencasServicos = 0;
     let metaTotalRecorrente = 0;
 
@@ -149,10 +149,7 @@ export const useGoalMetricsProcessor = (
       if (
         rubricaNorm.includes('setup') ||
         rubricaNorm.includes('licenca') ||
-        rubricaNorm.includes('licencas')
-      ) {
-        metaTotalLicencasServicos += metaValue;
-      } else if (
+        rubricaNorm.includes('licencas') ||
         rubricaNorm.includes('servicos nao recorrentes') ||
         rubricaNorm.includes('servicos não recorrentes') ||
         (rubricaNorm.includes('servico') && rubricaNorm.includes('nao recorrente'))
@@ -165,107 +162,103 @@ export const useGoalMetricsProcessor = (
 
     console.log(`[GOAL_METRICS] Period="${selectedPeriod}" metaLicServicos=${metaTotalLicencasServicos} metaRecorrente=${metaTotalRecorrente}`);
 
-    // ── STEP 1: Filter actions with valid categories → get oppIds ──
+    // 3) Ações elegíveis -> oppIds + oppId->ETN
     const oppIdsWithValidCategory = new Set<string>();
     const oppIdToEtn = new Map<string, Set<string>>();
 
-    for (const action of actions) {
-      const categoria = (action['Categoria'] || '').toString().trim();
-      if (!isValidCategory(categoria)) continue;
+    for (const action of actions as Record<string, any>[]) {
+      const categoria = getField(action, actionCols.category);
+      if (!isEligibleCommitmentCategory(categoria)) continue;
 
-      const oppId = String(action['Oportunidade ID'] || '').trim();
+      const oppId = getField(action, actionCols.oppId);
       if (!oppId) continue;
-
       oppIdsWithValidCategory.add(oppId);
 
-      // Map oppId → ETN (user name from action)
-      const etn = (action['Usuario'] || action['Usuário'] || '').toString().trim();
+      const etn = getField(action, actionCols.userName);
       if (etn) {
         if (!oppIdToEtn.has(oppId)) oppIdToEtn.set(oppId, new Set());
         oppIdToEtn.get(oppId)!.add(etn);
       }
     }
 
-    console.log(`[GOAL_METRICS] OppIds with valid categories: ${oppIdsWithValidCategory.size}`);
-    console.log(`[GOAL_METRICS] OppId→ETN mappings: ${oppIdToEtn.size}`);
+    // fallback: usar responsável da oportunidade para OPs elegíveis sem ETN
+    for (const opp of opportunities as Record<string, any>[]) {
+      const oppId = getField(opp, oppCols.oppId);
+      const responsible = getField(opp, oppCols.responsible);
+      if (!oppId || !responsible || !oppIdsWithValidCategory.has(oppId)) continue;
+      if (!oppIdToEtn.has(oppId)) oppIdToEtn.set(oppId, new Set());
+      oppIdToEtn.get(oppId)!.add(responsible);
+    }
 
-    // ── STEP 2: Filter opportunities "Fechada e Ganha" ──
+    // 4) Oportunidades Fechada e Ganha elegíveis
     const oppIdsFechadaGanha = new Set<string>();
 
-    for (const opp of opportunities) {
-      const oppId = String(opp['Oportunidade ID'] || '').trim();
-      const etapa = (opp['Etapa'] || '').toString().trim();
-      if ((etapa === 'Fechada e Ganha' || etapa === 'Fechada e Ganha TR') && oppIdsWithValidCategory.has(oppId)) {
+    for (const opp of opportunities as Record<string, any>[]) {
+      const oppId = getField(opp, oppCols.oppId);
+      const etapa = getField(opp, oppCols.stage);
+      const isWon = etapa === 'Fechada e Ganha' || etapa === 'Fechada e Ganha TR';
+      if (isWon && oppIdsWithValidCategory.has(oppId)) {
         oppIdsFechadaGanha.add(oppId);
       }
     }
 
-    console.log(`[GOAL_METRICS] OppIds Fechada e Ganha with valid categories: ${oppIdsFechadaGanha.size}`);
-
-    // ── Collect all ETNs from valid oppIds ──
     const allEtns = new Set<string>();
-    for (const [oppId, etns] of Array.from(oppIdToEtn.entries())) {
-      if (oppIdsFechadaGanha.has(oppId)) {
-        for (const etn of Array.from(etns)) allEtns.add(etn);
-      }
+    for (const [oppId, etns] of oppIdToEtn.entries()) {
+      if (!oppIdsFechadaGanha.has(oppId)) continue;
+      for (const etn of etns) allEtns.add(etn);
     }
 
-    // Also add ETNs from processedData if no valid opps found
-    if (allEtns.size === 0 && processedData.length > 0) {
-      // Use goal user names if available
-      for (const [, name] of goalUserNames) {
-        allEtns.add(name);
-      }
-      // Fallback: use all ETNs from processed data
-      if (allEtns.size === 0) {
-        for (const r of processedData) {
-          if (r.etn && r.etn !== 'Sem Agenda') allEtns.add(r.etn);
-        }
+    for (const [, goalName] of goalUserNames) {
+      allEtns.add(goalName);
+    }
+
+    if (allEtns.size === 0) {
+      for (const r of processedData) {
+        if (r.etn && r.etn !== 'Sem Agenda') allEtns.add(r.etn);
       }
     }
 
     if (allEtns.size === 0) allEtns.add('TOTAL');
 
-    console.log(`[GOAL_METRICS] ETNs for metrics:`, Array.from(allEtns));
+    console.log('[GOAL_METRICS] OppIds with valid categories:', oppIdsWithValidCategory.size);
+    console.log('[GOAL_METRICS] OppIds Fechada e Ganha com categorias válidas:', oppIdsFechadaGanha.size);
+    console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
-    // ── STEP 3: Sum pedidos linked to qualified opportunities ──
-    const etnRealizacao = new Map<string, { realLicencasServicos: number; realRecorrente: number }>();
-    for (const etn of Array.from(allEtns)) {
-      etnRealizacao.set(etn, { realLicencasServicos: 0, realRecorrente: 0 });
+    // 5) Pedidos ligados às OPs elegíveis
+    const etnRealizacao = new Map<string, { realLicencasServicos: number; realRecorrente: number; oppIds: Set<string> }>();
+    for (const etn of allEtns) {
+      etnRealizacao.set(etn, { realLicencasServicos: 0, realRecorrente: 0, oppIds: new Set() });
     }
 
     let pedidosMatchCount = 0;
+
     for (const pedido of pedidos) {
-      const oppId = pedido.idOportunidade.toString().trim();
-      if (!oppIdsFechadaGanha.has(oppId)) continue;
+      const oppId = String(pedido.idOportunidade || '').trim();
+      if (!oppId || !oppIdsFechadaGanha.has(oppId)) continue;
 
       pedidosMatchCount++;
       const licServicos = (pedido.produtoValorLicenca || 0) + (pedido.servicoValorLiquido || 0);
       const recorrente = pedido.produtoValorManutencao || 0;
 
-      // Distribute among ETNs of the opportunity
       const etns = oppIdToEtn.get(oppId);
-      if (etns && etns.size > 0) {
-        const numEtns = etns.size;
-        for (const etn of Array.from(etns)) {
-          const real = etnRealizacao.get(etn);
-          if (real) {
-            real.realLicencasServicos += licServicos / numEtns;
-            real.realRecorrente += recorrente / numEtns;
-          }
-        }
+      if (!etns || etns.size === 0) continue;
+
+      const divisor = etns.size;
+      for (const etn of etns) {
+        const real = etnRealizacao.get(etn);
+        if (!real) continue;
+        real.realLicencasServicos += licServicos / divisor;
+        real.realRecorrente += recorrente / divisor;
+        real.oppIds.add(oppId);
       }
     }
 
-    console.log(`[GOAL_METRICS] Pedidos matched: ${pedidosMatchCount} of ${pedidos.length}`);
-
-    // ── STEP 4: Calculate metrics per ETN + TOTAL ──
+    // 6) Métricas por ETN + TOTAL
     let totalRealLicServicos = 0;
     let totalRealRecorrente = 0;
 
     const etnResults = Array.from(allEtns).map((etn) => {
-      const real = etnRealizacao.get(etn) || { realLicencasServicos: 0, realRecorrente: 0 };
-
+      const real = etnRealizacao.get(etn) || { realLicencasServicos: 0, realRecorrente: 0, oppIds: new Set<string>() };
       totalRealLicServicos += real.realLicencasServicos;
       totalRealRecorrente += real.realRecorrente;
 
@@ -286,10 +279,9 @@ export const useGoalMetricsProcessor = (
         metaRecorrente: metaTotalRecorrente,
         realRecorrente: real.realRecorrente,
         percentualAtingimento,
-      };
+      } satisfies GoalMetrics;
     });
 
-    // Add TOTAL row
     const percentualLicTotal = metaTotalLicencasServicos > 0
       ? (totalRealLicServicos / metaTotalLicencasServicos) * 100
       : 0;
@@ -308,16 +300,19 @@ export const useGoalMetricsProcessor = (
       percentualAtingimento: percentualLicTotal * 0.5 + percentualRecTotal * 0.5,
     };
 
+    console.log(`[GOAL_METRICS] Pedidos matched: ${pedidosMatchCount} of ${pedidos.length}`);
     console.log(`[GOAL_METRICS] TOTAL: realLicServicos=${totalRealLicServicos} realRecorrente=${totalRealRecorrente} atingimento=${totalMetric.percentualAtingimento.toFixed(1)}%`);
 
-    // Log per-ETN audit for goal user
-    for (const [userId, name] of goalUserNames) {
-      const etnMetric = etnResults.find(m => m.etn === name);
-      if (etnMetric) {
-        console.log(`[GOAL_METRICS] AUDIT "${name}" (ID ${userId}): realLicServicos=${etnMetric.realLicencasServicos} realRecorrente=${etnMetric.realRecorrente} atingimento=${etnMetric.percentualAtingimento.toFixed(1)}%`);
-      } else {
-        console.log(`[GOAL_METRICS] AUDIT "${name}" (ID ${userId}): NOT FOUND in ETN results`);
-      }
+    for (const [goalUserId, goalName] of goalUserNames.entries()) {
+      const etnMetric = etnResults.find((m) => m.etn === goalName);
+      console.log('[GOAL_METRICS][AUDIT]', {
+        goalUserId,
+        goalName,
+        found: Boolean(etnMetric),
+        realLicServicos: etnMetric?.realLicencasServicos ?? 0,
+        realRecorrente: etnMetric?.realRecorrente ?? 0,
+        atingimento: Number((etnMetric?.percentualAtingimento ?? 0).toFixed(2)),
+      });
     }
 
     return [totalMetric, ...etnResults];
