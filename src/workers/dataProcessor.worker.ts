@@ -776,7 +776,7 @@ self.onmessage = (event: MessageEvent) => {
 
       self.postMessage({ type: 'progress', stage: 'processing', progress: 75, message: 'Processando dados...' });
 
-      const result = processData(opportunities, actions);
+      const result = processDataWithRaw(opportunities, actions);
 
       self.postMessage({ type: 'progress', stage: 'done', progress: 95, message: 'Finalizando...' });
       self.postMessage({ type: 'result', ...result });
