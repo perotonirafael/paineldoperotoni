@@ -44,6 +44,7 @@ export default function Home() {
   const { state: processingState, processFiles: processFilesLegacy, resetState } = useFileProcessor();
   const { processData: processDataWithWorker, processFiles: processFilesWithWorker, isProcessing: isWorkerProcessing, progress: workerProgress } = useWorkerDataProcessor();
   const { parseGoalsFile, parsePedidosFile } = useGoalProcessor();
+  const { isPersistingUploads, persistFilesTemporarily } = useTemporaryUploadStorage();
   const [workerResult, setWorkerResult] = useState<any>(null);
   const [useWorkerOnly, setUseWorkerOnly] = useState(false);
   const [lightOpportunities, setLightOpportunities] = useState<Opportunity[]>([]);
