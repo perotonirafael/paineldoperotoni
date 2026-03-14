@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { GoalRecord, PedidoRecord } from '@/types/goals';
+import { cleanHeaderName, findHeaderByCandidates } from '@/lib/headerMatching';
 
 /**
  * Robust value parser: handles numbers, "R$ 62,814.00", "62.814,00", "-", etc.
@@ -10,19 +11,15 @@ const parseGoalValue = (v: any): number => {
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
 
   let s = String(v).trim();
-  // Remove currency symbols and spaces
   s = s.replace(/R\$\s*/gi, '').replace(/\s/g, '');
   if (!s || s === '-') return 0;
 
-  // Detect format: "62,814.00" (US) vs "62.814,00" (BR)
   const lastComma = s.lastIndexOf(',');
   const lastDot = s.lastIndexOf('.');
 
   if (lastComma > lastDot) {
-    // BR format: 62.814,00 → remove dots, replace comma with dot
     s = s.replace(/\./g, '').replace(',', '.');
   } else {
-    // US format: 62,814.00 → remove commas
     s = s.replace(/,/g, '');
   }
 
@@ -30,226 +27,300 @@ const parseGoalValue = (v: any): number => {
   return isNaN(n) ? 0 : n;
 };
 
-// Parse valor no formato brasileiro: 4.771,20 → 4771.20
 const parseBR = (v: string | undefined): number => {
   if (!v || v.trim() === '') return 0;
-  const cleaned = v.trim().replace(/^"|"$/g, '').replace(/\./g, '').replace(',', '.');
+  const cleaned = v
+    .trim()
+    .replace(/^"|"$/g, '')
+    .replace(/R\$\s*/gi, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 };
 
-/**
- * Flexible column finder: matches headers ignoring case, accents, and whitespace.
- */
-function normalizeHeader(h: string): string {
-  return String(h || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+async function yieldToMainThread() {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-function findKey(row: any, possibleNames: string[]): string | undefined {
-  const normalizedPossible = possibleNames.map(normalizeHeader);
-  const keys = Object.keys(row);
-  for (const key of keys) {
-    const norm = normalizeHeader(key);
-    if (normalizedPossible.includes(norm)) return key;
-  }
-  // Partial match fallback
-  for (const key of keys) {
-    const norm = normalizeHeader(key);
-    for (const target of normalizedPossible) {
-      if (norm.includes(target) || target.includes(norm)) return key;
+function parseCSVLine(line: string, sep: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i += 2;
+        } else {
+          inQuotes = false;
+          i++;
+        }
+      } else {
+        current += char;
+        i++;
+      }
+    } else {
+      if (char === '"' && current === '') {
+        inQuotes = true;
+        i++;
+      } else if (char === sep) {
+        fields.push(current.trim());
+        current = '';
+        i++;
+      } else {
+        current += char;
+        i++;
+      }
     }
   }
-  return undefined;
+
+  fields.push(current.trim());
+  return fields;
 }
 
-function getVal(row: any, possibleNames: string[]): any {
-  const key = findKey(row, possibleNames);
-  return key ? row[key] : undefined;
+async function parseCSVText(text: string, sep: string): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return { headers: [], rows: [] };
+
+  const mergedLines: string[] = [];
+  let buffer = '';
+  let openQuotes = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (openQuotes) {
+      buffer += `\n${line}`;
+      const quoteCount = (line.match(/"/g) || []).length;
+      if (quoteCount % 2 === 1) {
+        openQuotes = false;
+        mergedLines.push(buffer);
+        buffer = '';
+      }
+    } else {
+      const quoteCount = (line.match(/"/g) || []).length;
+      if (quoteCount % 2 === 1) {
+        openQuotes = true;
+        buffer = line;
+      } else {
+        mergedLines.push(line);
+      }
+    }
+
+    if (i > 0 && i % 5000 === 0) {
+      await yieldToMainThread();
+    }
+  }
+
+  if (buffer) mergedLines.push(buffer);
+
+  const validLines = mergedLines.filter((l) => l.trim());
+  if (validLines.length < 2) return { headers: [], rows: [] };
+
+  const headers = parseCSVLine(validLines[0], sep).map(cleanHeaderName);
+  const rows: Record<string, string>[] = [];
+
+  for (let i = 1; i < validLines.length; i++) {
+    const values = parseCSVLine(validLines[i], sep);
+    if (values.length < 2) continue;
+
+    const row: Record<string, string> = {};
+    headers.forEach((header, idx) => {
+      row[header] = (idx < values.length ? values[idx] : '').replace(/^"|"$/g, '');
+    });
+
+    rows.push(row);
+
+    if (i % 4000 === 0) {
+      await yieldToMainThread();
+    }
+  }
+
+  return { headers, rows };
+}
+
+async function readFileAsText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+
+  try {
+    const utf8 = new TextDecoder('utf-8', { fatal: true });
+    return utf8.decode(buffer);
+  } catch {
+    const latin = new TextDecoder('windows-1252');
+    return latin.decode(buffer);
+  }
+}
+
+function resolveHeader(headers: string[], aliases: string[]): string {
+  return findHeaderByCandidates(headers, aliases) || aliases[0];
 }
 
 export const useGoalProcessor = () => {
   const parseGoalsFile = useCallback(async (file: File): Promise<GoalRecord[]> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          // CRITICAL: XLSX.read with type 'array' expects Uint8Array, not raw ArrayBuffer
-          const uint8 = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-          const workbook = XLSX.read(uint8, { type: 'array' });
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(worksheet) as any[];
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(worksheet) as Record<string, any>[];
 
-          console.log('[METAS] Total rows from XLSX:', rows.length);
-          if (rows.length > 0) {
-            console.log('[METAS] Headers detected:', Object.keys(rows[0]));
-            console.log('[METAS] Sample row 0:', JSON.stringify(rows[0]));
-          }
+      console.log('[METAS] Total rows from XLSX:', rows.length);
+      if (rows.length === 0) return [];
 
-          const goals: GoalRecord[] = rows
-            .filter((row) => {
-              const produto = getVal(row, ['Produto']);
-              const idUsuario = getVal(row, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
-              return produto && idUsuario;
-            })
-            .map((row) => {
-              const g: GoalRecord = {
-                produto: String(getVal(row, ['Produto']) || '').trim(),
-                idUsuario: String(getVal(row, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']) || '').trim(),
-                rubrica: String(getVal(row, ['Rubrica']) || '').trim(),
-                janeiro: parseGoalValue(getVal(row, ['Janeiro'])),
-                fevereiro: parseGoalValue(getVal(row, ['Fevereiro'])),
-                marco: parseGoalValue(getVal(row, ['Março', 'Marco'])),
-                primeiroTrimestre: parseGoalValue(getVal(row, ['1ºTri', '1º Tri', '1ºTrimestre', '1 Tri'])),
-                abril: parseGoalValue(getVal(row, ['Abril'])),
-                maio: parseGoalValue(getVal(row, ['Maio'])),
-                junho: parseGoalValue(getVal(row, ['Junho'])),
-                segundoTrimestre: parseGoalValue(getVal(row, ['2ºTri', '2º Tri', '2ºTrimestre', '2 Tri'])),
-                julho: parseGoalValue(getVal(row, ['Julho'])),
-                agosto: parseGoalValue(getVal(row, ['Agosto'])),
-                setembro: parseGoalValue(getVal(row, ['Setembro'])),
-                terceiroTrimestre: parseGoalValue(getVal(row, ['3ºTri', '3º Tri', '3ºTrimestre', '3 Tri'])),
-                outubro: parseGoalValue(getVal(row, ['Outubro'])),
-                novembro: parseGoalValue(getVal(row, ['Novembro'])),
-                dezembro: parseGoalValue(getVal(row, ['Dezembro'])),
-                quartoTrimestre: parseGoalValue(getVal(row, ['4ºTri', '4º Tri', '4ºTrimestre', '4 Tri'])),
-                totalAno: parseGoalValue(getVal(row, ['Total Ano', 'Total'])),
-              };
-              return g;
-            });
+      const headers = Object.keys(rows[0]).map(cleanHeaderName);
+      console.log('[METAS] Headers detectados:', headers);
 
-          console.log('[METAS] Parsed goals:', goals.length);
-          for (const g of goals) {
-            console.log(`[METAS] Produto="${g.produto}" ID="${g.idUsuario}" Rubrica="${g.rubrica}" Mar=${g.marco} Abr=${g.abril} TotalAno=${g.totalAno}`);
-          }
+      const colProduto = resolveHeader(headers, ['Produto']);
+      const colIdUsuario = resolveHeader(headers, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
+      const colRubrica = resolveHeader(headers, ['Rubrica']);
+      const colJaneiro = resolveHeader(headers, ['Janeiro']);
+      const colFevereiro = resolveHeader(headers, ['Fevereiro']);
+      const colMarco = resolveHeader(headers, ['Março', 'Marco']);
+      const colAbril = resolveHeader(headers, ['Abril']);
+      const colMaio = resolveHeader(headers, ['Maio']);
+      const colJunho = resolveHeader(headers, ['Junho']);
+      const colJulho = resolveHeader(headers, ['Julho']);
+      const colAgosto = resolveHeader(headers, ['Agosto']);
+      const colSetembro = resolveHeader(headers, ['Setembro']);
+      const colOutubro = resolveHeader(headers, ['Outubro']);
+      const colNovembro = resolveHeader(headers, ['Novembro']);
+      const colDezembro = resolveHeader(headers, ['Dezembro']);
+      const colTotalAno = resolveHeader(headers, ['Total Ano', 'Total']);
 
-          resolve(goals);
-        } catch (err) {
-          reject(new Error(`Erro ao processar arquivo de metas: ${err}`));
-        }
-      };
-      reader.onerror = () => reject(new Error('Erro ao ler arquivo de metas'));
-      reader.readAsArrayBuffer(file);
-    });
+      const goals: GoalRecord[] = rows
+        .filter((row) => {
+          const produto = String(row[colProduto] || '').trim();
+          const idUsuario = String(row[colIdUsuario] || '').trim();
+          return Boolean(produto && idUsuario);
+        })
+        .map((row) => ({
+          produto: String(row[colProduto] || '').trim(),
+          idUsuario: String(row[colIdUsuario] || '').trim(),
+          rubrica: String(row[colRubrica] || '').trim(),
+          janeiro: parseGoalValue(row[colJaneiro]),
+          fevereiro: parseGoalValue(row[colFevereiro]),
+          marco: parseGoalValue(row[colMarco]),
+          primeiroTrimestre: parseGoalValue(row['1ºTri'] ?? row['1º Tri'] ?? row['1ºTrimestre'] ?? row['1 Tri']),
+          abril: parseGoalValue(row[colAbril]),
+          maio: parseGoalValue(row[colMaio]),
+          junho: parseGoalValue(row[colJunho]),
+          segundoTrimestre: parseGoalValue(row['2ºTri'] ?? row['2º Tri'] ?? row['2ºTrimestre'] ?? row['2 Tri']),
+          julho: parseGoalValue(row[colJulho]),
+          agosto: parseGoalValue(row[colAgosto]),
+          setembro: parseGoalValue(row[colSetembro]),
+          terceiroTrimestre: parseGoalValue(row['3ºTri'] ?? row['3º Tri'] ?? row['3ºTrimestre'] ?? row['3 Tri']),
+          outubro: parseGoalValue(row[colOutubro]),
+          novembro: parseGoalValue(row[colNovembro]),
+          dezembro: parseGoalValue(row[colDezembro]),
+          quartoTrimestre: parseGoalValue(row['4ºTri'] ?? row['4º Tri'] ?? row['4ºTrimestre'] ?? row['4 Tri']),
+          totalAno: parseGoalValue(row[colTotalAno]),
+        }));
+
+      console.log('[METAS] Parsed goals:', goals.length);
+      if (goals.length > 0) {
+        console.log('[METAS] Amostra meta:', goals[0]);
+      }
+
+      return goals;
+    } catch (err) {
+      throw new Error(`Erro ao processar arquivo de metas: ${err}`);
+    }
   }, []);
 
   const parsePedidosFile = useCallback(async (file: File): Promise<PedidoRecord[]> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          let text: string;
+    try {
+      const text = await readFileAsText(file);
+      const firstLine = text.split(/\r?\n/)[0] || '';
+      const sep = firstLine.includes(';') ? ';' : firstLine.includes('\t') ? '\t' : ',';
 
-          if (typeof data === 'string') {
-            text = data;
-          } else {
-            const decoder = new TextDecoder('iso-8859-1');
-            text = decoder.decode(data as ArrayBuffer);
-          }
+      const { headers, rows } = await parseCSVText(text, sep);
+      if (rows.length === 0) {
+        throw new Error('Arquivo de pedidos vazio ou inválido');
+      }
 
-          const lines = text.split('\n');
-          if (lines.length === 0) throw new Error('Arquivo vazio');
+      console.log('[PEDIDOS] Headers detectados:', headers.slice(0, 20).join(' | '));
 
-          // Parse header with flexible quote removal
-          const rawHeaders = lines[0].split(';').map((h) => h.trim().replace(/^"|"$/g, ''));
-          console.log('[PEDIDOS] Headers:', rawHeaders.slice(0, 15).join(' | '));
+      const colIdOpp = resolveHeader(headers, ['ID OPORTUNIDADE']);
+      const colEtapa = resolveHeader(headers, ['ETAPA OPORTUNIDADE']);
+      const colProp = resolveHeader(headers, ['PROPRIETARIO OPORTUNIDADE']);
+      const colIdErp = resolveHeader(headers, ['ID ERP PROPRIETARIO']);
+      const colProduto = resolveHeader(headers, ['PRODUTO']);
+      const colCodModulo = resolveHeader(headers, ['PRODUTO - CÓDIGO DO MÓDULO', 'PRODUTO - CODIGO DO MODULO']);
+      const colModulo = resolveHeader(headers, ['PRODUTO - MODULO']);
+      const colValLic = resolveHeader(headers, ['PRODUTO - VALOR LICENCA']);
+      const colValLicCanal = resolveHeader(headers, ['PRODUTO - VALOR LICENCA CANAL']);
+      const colValMan = resolveHeader(headers, ['PRODUTO - VALOR MANUTENCAO']);
+      const colValManCanal = resolveHeader(headers, ['PRODUTO - VALOR MANUTENCAO CANAL']);
+      const colServico = resolveHeader(headers, ['SERVICO']);
+      const colServTipo = resolveHeader(headers, ['SERVICO - TIPO DE FATURAMENTO']);
+      const colServQtde = resolveHeader(headers, ['SERVICO - QTDE DE HORAS']);
+      const colServValHora = resolveHeader(headers, ['SERVICO - VALOR HORA']);
+      const colServValBruto = resolveHeader(headers, ['SERVICO - VALOR BRUTO']);
+      const colServValOver = resolveHeader(headers, ['SERVICO - VALOR OVER']);
+      const colServValDesc = resolveHeader(headers, ['SERVICO - VALOR DESCONTO']);
+      const colServValCanal = resolveHeader(headers, ['SERVICO - VALOR CANAL']);
+      const colServValLiq = resolveHeader(headers, ['SERVICO - VALOR LIQUIDO']);
 
-          // Flexible column finder for pedidos
-          const findCol = (possibles: string[]): string => {
-            const normalized = possibles.map(normalizeHeader);
-            for (const h of rawHeaders) {
-              const hn = normalizeHeader(h);
-              if (normalized.includes(hn)) return h;
-            }
-            // Partial match
-            for (const h of rawHeaders) {
-              const hn = normalizeHeader(h);
-              for (const t of normalized) {
-                if (hn.includes(t) || t.includes(hn)) return h;
-              }
-            }
-            return possibles[0]; // fallback
-          };
+      console.log('[PEDIDOS] Mapeamento de colunas:', {
+        colIdOpp,
+        colEtapa,
+        colProp,
+        colIdErp,
+        colProduto,
+      });
 
-          const colIdOpp = findCol(['ID OPORTUNIDADE']);
-          const colEtapa = findCol(['ETAPA OPORTUNIDADE']);
-          const colProp = findCol(['PROPRIETARIO OPORTUNIDADE']);
-          const colIdErp = findCol(['ID ERP PROPRIETARIO']);
-          const colProduto = findCol(['PRODUTO']);
-          const colCodModulo = findCol(['PRODUTO - CÓDIGO DO MÓDULO', 'PRODUTO - CODIGO DO MODULO']);
-          const colModulo = findCol(['PRODUTO - MODULO']);
-          const colValLic = findCol(['PRODUTO - VALOR LICENCA']);
-          const colValLicCanal = findCol(['PRODUTO - VALOR LICENCA CANAL']);
-          const colValMan = findCol(['PRODUTO - VALOR MANUTENCAO']);
-          const colValManCanal = findCol(['PRODUTO - VALOR MANUTENCAO CANAL']);
-          const colServico = findCol(['SERVICO']);
-          const colServTipo = findCol(['SERVICO - TIPO DE FATURAMENTO']);
-          const colServQtde = findCol(['SERVICO - QTDE DE HORAS']);
-          const colServValHora = findCol(['SERVICO - VALOR HORA']);
-          const colServValBruto = findCol(['SERVICO - VALOR BRUTO']);
-          const colServValOver = findCol(['SERVICO - VALOR OVER']);
-          const colServValDesc = findCol(['SERVICO - VALOR DESCONTO']);
-          const colServValCanal = findCol(['SERVICO - VALOR CANAL']);
-          const colServValLiq = findCol(['SERVICO - VALOR LIQUIDO']);
+      const pedidos: PedidoRecord[] = [];
 
-          const pedidos: PedidoRecord[] = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
 
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
+        const pedido: PedidoRecord = {
+          idOportunidade: row[colIdOpp] || '',
+          idEtapaOportunidade: row[colEtapa] || '',
+          proprietarioOportunidade: row[colProp] || '',
+          idErpProprietario: row[colIdErp] || '',
+          produto: row[colProduto] || '',
+          produtoCodigoModulo: row[colCodModulo] || '',
+          produtoModulo: row[colModulo] || '',
+          produtoValorLicenca: parseBR(row[colValLic]),
+          produtoValorLicencaCanal: parseBR(row[colValLicCanal]),
+          produtoValorManutencao: parseBR(row[colValMan]),
+          produtoValorManutencaoCanal: parseBR(row[colValManCanal]),
+          servico: row[colServico] || '',
+          servicoTipoDeFaturamento: row[colServTipo] || '',
+          servicoQtdeDeHoras: parseBR(row[colServQtde]),
+          servicoValorHora: parseBR(row[colServValHora]),
+          servicoValorBruto: parseBR(row[colServValBruto]),
+          servicoValorOver: parseBR(row[colServValOver]),
+          servicoValorDesconto: parseBR(row[colServValDesc]),
+          servicoValorCanal: parseBR(row[colServValCanal]),
+          servicoValorLiquido: parseBR(row[colServValLiq]),
+        };
 
-            const values = line.split(';').map((v) => v.trim().replace(/^"|"$/g, ''));
-            const row: Record<string, string> = {};
-            rawHeaders.forEach((header, idx) => {
-              row[header] = values[idx] || '';
-            });
-
-            const pedido: PedidoRecord = {
-              idOportunidade: row[colIdOpp] || '',
-              idEtapaOportunidade: row[colEtapa] || '',
-              proprietarioOportunidade: row[colProp] || '',
-              idErpProprietario: row[colIdErp] || '',
-              produto: row[colProduto] || '',
-              produtoCodigoModulo: row[colCodModulo] || '',
-              produtoModulo: row[colModulo] || '',
-              produtoValorLicenca: parseBR(row[colValLic]),
-              produtoValorLicencaCanal: parseBR(row[colValLicCanal]),
-              produtoValorManutencao: parseBR(row[colValMan]),
-              produtoValorManutencaoCanal: parseBR(row[colValManCanal]),
-              servico: row[colServico] || '',
-              servicoTipoDeFaturamento: row[colServTipo] || '',
-              servicoQtdeDeHoras: parseBR(row[colServQtde]),
-              servicoValorHora: parseBR(row[colServValHora]),
-              servicoValorBruto: parseBR(row[colServValBruto]),
-              servicoValorOver: parseBR(row[colServValOver]),
-              servicoValorDesconto: parseBR(row[colServValDesc]),
-              servicoValorCanal: parseBR(row[colServValCanal]),
-              servicoValorLiquido: parseBR(row[colServValLiq]),
-            };
-
-            if (pedido.idOportunidade) {
-              pedidos.push(pedido);
-            }
-          }
-
-          console.log(`[PEDIDOS] Parsed ${pedidos.length} records`);
-          if (pedidos.length > 0) {
-            console.log('[PEDIDOS] Sample:', JSON.stringify(pedidos[0]));
-          }
-
-          resolve(pedidos);
-        } catch (err) {
-          reject(new Error(`Erro ao processar arquivo de pedidos: ${err}`));
+        if (pedido.idOportunidade) {
+          pedidos.push(pedido);
         }
-      };
-      reader.onerror = () => reject(new Error('Erro ao ler arquivo de pedidos'));
-      reader.readAsArrayBuffer(file);
-    });
+
+        if (i > 0 && i % 5000 === 0) {
+          await yieldToMainThread();
+        }
+      }
+
+      console.log(`[PEDIDOS] Parsed ${pedidos.length} records`);
+      if (pedidos.length > 0) {
+        console.log('[PEDIDOS] Sample:', pedidos[0]);
+      }
+
+      return pedidos;
+    } catch (err) {
+      throw new Error(`Erro ao processar arquivo de pedidos: ${err}`);
+    }
   }, []);
 
   return { parseGoalsFile, parsePedidosFile };
