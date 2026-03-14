@@ -138,6 +138,7 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
     'analise de rfp/rfi',
     'termo de referencia',
     'edital',
+    'analise arquiteto de software - exclusivo gtn',
   ]);
 
   // Conjunto de OPs que possuem pelo menos 1 compromisso dos 7 tipos qualificadores
