@@ -433,8 +433,7 @@ export default function Home() {
         }
 
         // Demo para Taxa de Conversão
-        const catNorm = normalizeKPICat(categoria);
-        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+        if (isDemoCommitmentCategory(categoria)) {
           demoOppKeys.add(oppId);
         }
       }
