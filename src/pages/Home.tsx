@@ -445,8 +445,7 @@ export default function Home() {
         if (isValidKPICategory(cat)) {
           validCatOppIds.add(r.oppId);
         }
-        const catNorm = normalizeKPICat(cat);
-        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+        if (isDemoCommitmentCategory(cat)) {
           demoOppKeys.add(r.oppId);
         }
       }
