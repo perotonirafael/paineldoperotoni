@@ -14,7 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      temp_upload_batches: {
+        Row: {
+          act_file_name: string | null
+          created_at: string
+          goal_file_name: string | null
+          id: string
+          opp_file_name: string | null
+          pedido_file_name: string | null
+          snapshot_key: string
+          updated_at: string
+        }
+        Insert: {
+          act_file_name?: string | null
+          created_at?: string
+          goal_file_name?: string | null
+          id?: string
+          opp_file_name?: string | null
+          pedido_file_name?: string | null
+          snapshot_key: string
+          updated_at?: string
+        }
+        Update: {
+          act_file_name?: string | null
+          created_at?: string
+          goal_file_name?: string | null
+          id?: string
+          opp_file_name?: string | null
+          pedido_file_name?: string | null
+          snapshot_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      temp_upload_file_chunks: {
+        Row: {
+          batch_id: string
+          chunk_base64: string
+          chunk_index: number
+          created_at: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          mime_type: string | null
+          total_chunks: number
+        }
+        Insert: {
+          batch_id: string
+          chunk_base64: string
+          chunk_index: number
+          created_at?: string
+          file_name: string
+          file_size?: number
+          file_type: string
+          id?: string
+          mime_type?: string | null
+          total_chunks: number
+        }
+        Update: {
+          batch_id?: string
+          chunk_base64?: string
+          chunk_index?: number
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          mime_type?: string | null
+          total_chunks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temp_upload_file_chunks_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "temp_upload_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

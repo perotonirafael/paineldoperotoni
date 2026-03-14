@@ -9,6 +9,7 @@ import { useFileProcessor } from '@/hooks/useFileProcessor';
 import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
 import { useGoalProcessor } from '@/hooks/useGoalProcessor';
 import { useGoalMetricsProcessor } from '@/hooks/useGoalMetricsProcessor';
+import { useTemporaryUploadStorage } from '@/hooks/useTemporaryUploadStorage';
 import type { GoalRecord, PedidoRecord } from '@/types/goals';
 import { PeriodSelector } from '@/components/PeriodSelector';
 import { GoalChart } from '@/components/GoalChart';
@@ -20,6 +21,7 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { ETNDetailModal } from '@/components/ETNDetailModal';
 import { ETNComparativeAnalysis } from '@/components/ETNComparativeAnalysis';
 import { DEMO_DATA } from '@/lib/demoData';
+import { isDemoCommitmentCategory, isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { saveToCache, loadFromCache, clearCache, getCacheInfo } from '@/hooks/useDataCache';
 
 export default function Home() {
@@ -42,6 +44,7 @@ export default function Home() {
   const { state: processingState, processFiles: processFilesLegacy, resetState } = useFileProcessor();
   const { processData: processDataWithWorker, processFiles: processFilesWithWorker, isProcessing: isWorkerProcessing, progress: workerProgress } = useWorkerDataProcessor();
   const { parseGoalsFile, parsePedidosFile } = useGoalProcessor();
+  const { isPersistingUploads, persistFilesTemporarily } = useTemporaryUploadStorage();
   const [workerResult, setWorkerResult] = useState<any>(null);
   const [useWorkerOnly, setUseWorkerOnly] = useState(false);
   const [lightOpportunities, setLightOpportunities] = useState<Opportunity[]>([]);
@@ -193,22 +196,14 @@ export default function Home() {
   const etnConversionTop10 = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return [];
 
-    // Função auxiliar de normalização
-    const normalize = (v: string) => v
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-
     // Construir set de OppIds que têm demonstração (Presencial ou Remota)
     const demoOppIds = new Set<string>();
 
     if (actions.length > 0) {
       // Upload direto ou demo: usar actions
       for (const a of actions) {
-        const categoria = normalize((a['Categoria'] || '').toString());
-        const isDemo = categoria.includes('demonstracao') && (categoria.includes('presencial') || categoria.includes('remota'));
-        if (!isDemo) continue;
+        const categoria = (a['Categoria'] || '').toString();
+        if (!isDemoCommitmentCategory(categoria)) continue;
         const oppId = (a['Oportunidade ID'] || '').toString().trim();
         if (!oppId) continue;
         demoOppIds.add(oppId);
@@ -217,8 +212,7 @@ export default function Home() {
       // Cache: varrer TODOS os records para encontrar quais OPs têm demo
       for (const r of filteredData) {
         if (!r.categoriaCompromisso) continue;
-        const catNorm = normalize(r.categoriaCompromisso);
-        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+        if (isDemoCommitmentCategory(r.categoriaCompromisso)) {
           demoOppIds.add(r.oppId);
         }
       }
@@ -412,24 +406,10 @@ export default function Home() {
       .slice(0, 10);
   }, [filteredData]);
 
-  // Categorias de compromisso válidas para KPIs Fechada e Ganha / Perdida
-  // Uses normalized matching (accent-insensitive, case-insensitive)
-  const VALID_KPI_CATEGORIES_NORMALIZED = useMemo(() => new Set([
-    'demonstracao presencial',
-    'demonstracao remota',
-    'analise de aderencia',
-    'analise de rfp/rfi',
-    'etn apoio',
-    'termo de referencia',
-    'edital',
-    'analise arquiteto de software - exclusivo gtn',
-  ]), []);
-
-  const normalizeKPICat = useCallback((v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(), []);
-
+  // Categorias válidas centralizadas para KPIs
   const isValidKPICategory = useCallback((categoria: string): boolean => {
-    return VALID_KPI_CATEGORIES_NORMALIZED.has(normalizeKPICat(categoria));
-  }, [VALID_KPI_CATEGORIES_NORMALIZED, normalizeKPICat]);
+    return isEligibleCommitmentCategory(categoria);
+  }, []);
 
   // KPIs filtrados - ITEM 10: usar valorUnificado
   // Fechada e Ganha / Perdida: apenas OPs com pelo menos 1 compromisso de categoria válida
@@ -453,8 +433,7 @@ export default function Home() {
         }
 
         // Demo para Taxa de Conversão
-        const catNorm = normalizeKPICat(categoria);
-        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+        if (isDemoCommitmentCategory(categoria)) {
           demoOppKeys.add(oppId);
         }
       }
@@ -466,8 +445,7 @@ export default function Home() {
         if (isValidKPICategory(cat)) {
           validCatOppIds.add(r.oppId);
         }
-        const catNorm = normalizeKPICat(cat);
-        if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
+        if (isDemoCommitmentCategory(cat)) {
           demoOppKeys.add(r.oppId);
         }
       }
@@ -532,36 +510,49 @@ export default function Home() {
     setWorkerResult(null);
     setLightOpportunities([]);
     setLightActions([]);
+
+    try {
+      await persistFilesTemporarily({
+        opportunities: oppFile,
+        commitments: actFile,
+        goals: goalFile,
+        orders: pedidoFile,
+      });
+    } catch (persistErr) {
+      console.warn('[UPLOAD_DB] Falha ao persistir upload temporário:', persistErr);
+    }
+
     try {
       const workerRes = await processFilesWithWorker(oppFile, actFile);
       setWorkerResult(workerRes);
-      // Setar dados brutos para useGoalMetricsProcessor
+
       if (workerRes?.rawOpportunities) setOpportunities(workerRes.rawOpportunities);
       if (workerRes?.rawActions) setActions(workerRes.rawActions);
-      // Processar metas e pedidos automaticamente se arquivos foram selecionados
-      if (goalFile) {
-        try {
-          const goalsData = await parseGoalsFile(goalFile);
-          setGoals(goalsData);
-        } catch (goalErr) {
-          console.warn('Erro ao processar metas:', goalErr);
-        }
+
+      const [goalsResult, pedidosResult] = await Promise.allSettled([
+        goalFile ? parseGoalsFile(goalFile) : Promise.resolve([]),
+        pedidoFile ? parsePedidosFile(pedidoFile) : Promise.resolve([]),
+      ]);
+
+      if (goalsResult.status === 'fulfilled') {
+        setGoals(goalsResult.value);
+      } else {
+        console.warn('[GOALS_LOAD] Erro ao processar metas:', goalsResult.reason);
       }
-      if (pedidoFile) {
-        try {
-          const pedidosData = await parsePedidosFile(pedidoFile);
-          setPedidos(pedidosData);
-        } catch (pedErr) {
-          console.warn('Erro ao processar pedidos:', pedErr);
-        }
+
+      if (pedidosResult.status === 'fulfilled') {
+        setPedidos(pedidosResult.value);
+      } else {
+        console.warn('[GOALS_LOAD] Erro ao processar pedidos:', pedidosResult.reason);
       }
+
       try {
         await saveToCache(
           workerRes,
           oppFile?.name || '',
           actFile?.name || '',
           workerRes?.records?.length || 0,
-          workerRes?.kpis?.totalAgendas || 0
+          workerRes?.kpis?.totalAgendas || 0,
         );
         setCacheInfo({
           exists: true,
@@ -578,7 +569,7 @@ export default function Home() {
       console.error('Erro no Web Worker:', err);
       setError(err instanceof Error ? err.message : 'Erro ao processar arquivos');
     }
-  }, [oppFile, actFile, goalFile, pedidoFile, processFilesWithWorker, parseGoalsFile, parsePedidosFile]);
+  }, [oppFile, actFile, goalFile, pedidoFile, processFilesWithWorker, parseGoalsFile, parsePedidosFile, persistFilesTemporarily]);
 
   const handleOppFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -633,10 +624,10 @@ export default function Home() {
 
   // Processar metas automaticamente quando ambos arquivos são selecionados
   useEffect(() => {
-    if (goalFile && pedidoFile) {
+    if (processedData.length > 0 && goalFile && pedidoFile) {
       handleLoadGoals();
     }
-  }, [goalFile, pedidoFile, handleLoadGoals]);
+  }, [processedData.length, goalFile, pedidoFile, handleLoadGoals]);
 
   const handleLoadCache = useCallback(async () => {
     setIsLoadingCache(true);
@@ -1226,7 +1217,7 @@ export default function Home() {
         )}
 
         {/* Análise Comparativa de ETNs */}
-        {opportunities.length > 0 && (
+        {processedData.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">Análise Comparativa de ETNs</h2>
             <ETNComparativeAnalysis data={filteredData} actions={actions} />
