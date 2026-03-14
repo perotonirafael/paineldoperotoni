@@ -406,24 +406,10 @@ export default function Home() {
       .slice(0, 10);
   }, [filteredData]);
 
-  // Categorias de compromisso válidas para KPIs Fechada e Ganha / Perdida
-  // Uses normalized matching (accent-insensitive, case-insensitive)
-  const VALID_KPI_CATEGORIES_NORMALIZED = useMemo(() => new Set([
-    'demonstracao presencial',
-    'demonstracao remota',
-    'analise de aderencia',
-    'analise de rfp/rfi',
-    'etn apoio',
-    'termo de referencia',
-    'edital',
-    'analise arquiteto de software - exclusivo gtn',
-  ]), []);
-
-  const normalizeKPICat = useCallback((v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(), []);
-
+  // Categorias válidas centralizadas para KPIs
   const isValidKPICategory = useCallback((categoria: string): boolean => {
-    return VALID_KPI_CATEGORIES_NORMALIZED.has(normalizeKPICat(categoria));
-  }, [VALID_KPI_CATEGORIES_NORMALIZED, normalizeKPICat]);
+    return isEligibleCommitmentCategory(categoria);
+  }, []);
 
   // KPIs filtrados - ITEM 10: usar valorUnificado
   // Fechada e Ganha / Perdida: apenas OPs com pelo menos 1 compromisso de categoria válida
