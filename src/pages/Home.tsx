@@ -499,6 +499,9 @@ export default function Home() {
     try {
       const workerRes = await processFilesWithWorker(oppFile, actFile);
       setWorkerResult(workerRes);
+      // Setar dados brutos para useGoalMetricsProcessor
+      if (workerRes?.rawOpportunities) setOpportunities(workerRes.rawOpportunities);
+      if (workerRes?.rawActions) setActions(workerRes.rawActions);
       // Processar metas e pedidos automaticamente se arquivos foram selecionados
       if (goalFile) {
         try {
