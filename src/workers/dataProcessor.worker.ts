@@ -701,6 +701,16 @@ function processData(opportunities: any[], actions: any[]) {
   };
 }
 
+// Wrapper that also returns raw data for goal metrics processing
+function processDataWithRaw(opportunities: any[], actions: any[]) {
+  const result = processData(opportunities, actions);
+  return {
+    ...result,
+    rawOpportunities: opportunities,
+    rawActions: actions,
+  };
+}
+
 // ====== MESSAGE HANDLER ======
 
 self.onmessage = (event: MessageEvent) => {
