@@ -413,22 +413,28 @@ export default function Home() {
   }, [filteredData]);
 
   // Categorias de compromisso válidas para KPIs Fechada e Ganha / Perdida
-  const VALID_KPI_CATEGORIES = new Set([
-    'Demonstracao Presencial',
-    'Demonstracao Remota',
-    'Analise de aderencia',
-    'Analise de RFP/RFI',
-    'ETN Apoio',
-    'Termo de Referencia',
-    'Edital',
-    'Analise arquiteto de software - Exclusivo GTN',
-  ]);
+  // Uses normalized matching (accent-insensitive, case-insensitive)
+  const VALID_KPI_CATEGORIES_NORMALIZED = useMemo(() => new Set([
+    'demonstracao presencial',
+    'demonstracao remota',
+    'analise de aderencia',
+    'analise de rfp/rfi',
+    'etn apoio',
+    'termo de referencia',
+    'edital',
+    'analise arquiteto de software - exclusivo gtn',
+  ]), []);
+
+  const normalizeKPICat = useCallback((v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(), []);
+
+  const isValidKPICategory = useCallback((categoria: string): boolean => {
+    return VALID_KPI_CATEGORIES_NORMALIZED.has(normalizeKPICat(categoria));
+  }, [VALID_KPI_CATEGORIES_NORMALIZED, normalizeKPICat]);
 
   // KPIs filtrados - ITEM 10: usar valorUnificado
   // Fechada e Ganha / Perdida: apenas OPs com pelo menos 1 compromisso de categoria válida
   const filteredKPIs = useMemo(() => {
     if (!kpis) return null;
-    const normalizeKPI = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
     // Construir set de OPs com categorias válidas (para Ganhas/Perdidas)
     const validCatOppIds = new Set<string>();
@@ -442,12 +448,12 @@ export default function Home() {
         if (!oppId) continue;
 
         // Categorias válidas para KPIs Fechada e Ganha / Perdida
-        if (VALID_KPI_CATEGORIES.has(categoria)) {
+        if (isValidKPICategory(categoria)) {
           validCatOppIds.add(oppId);
         }
 
         // Demo para Taxa de Conversão
-        const catNorm = normalizeKPI(categoria);
+        const catNorm = normalizeKPICat(categoria);
         if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
           demoOppKeys.add(oppId);
         }
@@ -457,16 +463,15 @@ export default function Home() {
       for (const r of filteredData) {
         if (!r.categoriaCompromisso) continue;
         const cat = r.categoriaCompromisso.trim();
-        if (VALID_KPI_CATEGORIES.has(cat)) {
+        if (isValidKPICategory(cat)) {
           validCatOppIds.add(r.oppId);
         }
-        const catNorm = normalizeKPI(cat);
+        const catNorm = normalizeKPICat(cat);
         if (catNorm.includes('demonstracao') && (catNorm.includes('presencial') || catNorm.includes('remota'))) {
           demoOppKeys.add(r.oppId);
         }
       }
     }
-
     const seenOps = new Set<string>();
     const seenGanhas = new Set<string>();
     const seenPerdidas = new Set<string>();
