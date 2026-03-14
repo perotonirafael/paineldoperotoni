@@ -655,6 +655,9 @@ export default function Home() {
           },
         };
         setWorkerResult(cleanedResult);
+        // Restaurar dados brutos do cache para goal metrics
+        if (cached.result.rawOpportunities) setOpportunities(cached.result.rawOpportunities);
+        if (cached.result.rawActions) setActions(cached.result.rawActions);
       } else {
         setError('Cache não encontrado ou corrompido. Faça upload dos arquivos novamente.');
       }
