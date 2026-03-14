@@ -213,31 +213,29 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     return result.sort((a, b) => b.value - a.value);
   }, [data]);
 
-  // 6. Valor por Etapa (Funil)
+  // 6. Valor por Etapa (Funil) - Dynamic stages from data
   const valueByStage = useMemo(() => {
     const stageMap = new Map<string, { value: number; count: number }>();
-    const stages = ['Prospecção', 'Qualificação', 'Negociação', 'Fechada e Ganha', 'Fechada e Perdida'];
-
-    for (const stage of stages) {
-      stageMap.set(stage, { value: 0, count: 0 });
-    }
+    const seen = new Set<string>();
 
     for (const r of data) {
-      const stage = r.etapa;
-      if (stageMap.has(stage)) {
-        const s = stageMap.get(stage)!;
-        s.value += (r.valorUnificado ?? (r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR' ? r.valorFechado : r.valorPrevisto));
-        s.count++;
-      }
+      if (seen.has(r.oppId)) continue;
+      seen.add(r.oppId);
+      const stage = r.etapa || 'Desconhecido';
+      const s = stageMap.get(stage) || { value: 0, count: 0 };
+      s.value += (r.valorUnificado ?? (r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR' ? r.valorFechado : r.valorPrevisto));
+      s.count++;
+      stageMap.set(stage, s);
     }
 
     return Array.from(stageMap.entries())
-      .map(([stage, { value, count }]) => ({
+      .map(([stage, { value, count }], i) => ({
         name: stage,
         value,
         count,
-        fill: FUNNEL_COLORS[stages.indexOf(stage)],
-      }));
+        fill: FUNNEL_COLORS[i % FUNNEL_COLORS.length],
+      }))
+      .sort((a, b) => b.value - a.value);
   }, [data]);
 
   return (

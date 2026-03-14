@@ -138,6 +138,7 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
     'analise de rfp/rfi',
     'termo de referencia',
     'edital',
+    'analise arquiteto de software - exclusivo gtn',
   ]);
 
   // Conjunto de OPs que possuem pelo menos 1 compromisso dos 7 tipos qualificadores
@@ -858,44 +859,134 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
             <p className="text-[10px] text-gray-400 text-center mt-2">Período: {dateRange}</p>
           </div>
 
-          {/* Seção de Metas */}
+          {/* Seção de Metas - Comparativo completo */}
           <div className="bg-white rounded-xl border border-purple-200 overflow-hidden">
             <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-5 py-3 border-b border-purple-200">
               <h3 className="text-sm font-bold text-purple-900 flex items-center gap-2">
                 <Target size={16} className="text-purple-600" />
-                Atingimento de Metas
+                Comparativo de Metas
               </h3>
             </div>
             <div className="p-5">
               {(() => {
                 const etnGoal = goalMetricas.find(m => m.etn === etn);
-                if (!etnGoal || (etnGoal.realLicencasServicos === 0 && etnGoal.realRecorrente === 0)) {
+                const totalGoal = goalMetricas.find(m => m.etn === 'TOTAL');
+                const activeGoal = etnGoal || totalGoal;
+
+                if (!activeGoal || (activeGoal.metaLicencasServicos === 0 && activeGoal.metaRecorrente === 0)) {
                   return (
                     <div className="h-32 flex flex-col items-center justify-center text-muted-foreground">
                       <Target size={24} className="mb-2 opacity-50" />
-                      <p className="text-sm">Sem dados de realização de meta para este ETN</p>
+                      <p className="text-sm">Sem dados de meta para este ETN</p>
                       <p className="text-xs opacity-70 mt-1">Carregue os arquivos de Metas e Pedidos CRM</p>
                     </div>
                   );
                 }
+
+                const getColor = (pct: number): string => {
+                  if (pct >= 100) return '#10b981';
+                  if (pct >= 75) return '#f59e0b';
+                  if (pct >= 50) return '#f97316';
+                  return '#ef4444';
+                };
+
+                const pctLic = activeGoal.metaLicencasServicos > 0
+                  ? (activeGoal.realLicencasServicos / activeGoal.metaLicencasServicos) * 100
+                  : 0;
+                const pctRec = activeGoal.metaRecorrente > 0
+                  ? (activeGoal.realRecorrente / activeGoal.metaRecorrente) * 100
+                  : 0;
+
+                const chartData = [
+                  {
+                    name: 'Licenças+Serviços',
+                    Meta: activeGoal.metaLicencasServicos,
+                    Realizado: activeGoal.realLicencasServicos,
+                  },
+                  {
+                    name: 'Recorrente',
+                    Meta: activeGoal.metaRecorrente,
+                    Realizado: activeGoal.realRecorrente,
+                  },
+                ];
+
                 return (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* KPI summary cards */}
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                        <p className="text-xs font-medium text-blue-700">Licenças + Serviços</p>
-                        <p className="text-lg font-bold text-blue-900">R$ {etnGoal.realLicencasServicos.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                        <p className="text-[10px] font-medium text-blue-700">Licenças + Serviços</p>
+                        <p className="text-sm font-bold text-blue-900">
+                          {formatCurrency(activeGoal.realLicencasServicos)}
+                        </p>
+                        <p className="text-[10px] text-blue-600">Meta: {formatCurrency(activeGoal.metaLicencasServicos)}</p>
+                        <div className="mt-1 h-1.5 bg-blue-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(pctLic, 100)}%`,
+                              backgroundColor: getColor(pctLic),
+                            }}
+                          />
+                        </div>
+                        <p className="text-[10px] font-bold mt-0.5" style={{ color: getColor(pctLic) }}>
+                          {pctLic.toFixed(1)}%
+                        </p>
                       </div>
                       <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
-                        <p className="text-xs font-medium text-purple-700">Recorrente</p>
-                        <p className="text-lg font-bold text-purple-900">R$ {etnGoal.realRecorrente.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                        <p className="text-[10px] font-medium text-purple-700">Recorrente</p>
+                        <p className="text-sm font-bold text-purple-900">
+                          {formatCurrency(activeGoal.realRecorrente)}
+                        </p>
+                        <p className="text-[10px] text-purple-600">Meta: {formatCurrency(activeGoal.metaRecorrente)}</p>
+                        <div className="mt-1 h-1.5 bg-purple-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(pctRec, 100)}%`,
+                              backgroundColor: getColor(pctRec),
+                            }}
+                          />
+                        </div>
+                        <p className="text-[10px] font-bold mt-0.5" style={{ color: getColor(pctRec) }}>
+                          {pctRec.toFixed(1)}%
+                        </p>
+                      </div>
+                      <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                        <p className="text-[10px] font-medium text-emerald-700">Atingimento Ponderado</p>
+                        <p className="text-xl font-bold" style={{ color: getColor(activeGoal.percentualAtingimento) }}>
+                          {activeGoal.percentualAtingimento.toFixed(1)}%
+                        </p>
+                        <div className="mt-1 h-1.5 bg-emerald-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(activeGoal.percentualAtingimento, 100)}%`,
+                              backgroundColor: getColor(activeGoal.percentualAtingimento),
+                            }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-emerald-600 mt-0.5">
+                          {activeGoal.percentualAtingimento >= 100 ? 'Meta atingida!' : '50% Lic+Serv · 50% Rec'}
+                        </p>
                       </div>
                     </div>
-                    <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-emerald-700">Total Realizado</p>
-                        <p className="text-lg font-bold text-emerald-900">R$ {(etnGoal.realLicencasServicos + etnGoal.realRecorrente).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-                      </div>
-                    </div>
+
+                    {/* Comparative bar chart */}
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} />
+                        <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 10, fill: '#6b7280' }} />
+                        <Tooltip
+                          contentStyle={{ background: 'rgba(255,255,255,0.97)', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '12px' }}
+                          formatter={(v: number) => formatCurrency(v)}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '11px' }} />
+                        <Bar dataKey="Meta" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Realizado" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 );
               })()}
