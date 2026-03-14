@@ -36,7 +36,16 @@ async function insertChunks(
   const bytes = new Uint8Array(buffer);
 
   const totalChunks = Math.max(1, Math.ceil(bytes.length / CHUNK_BYTES));
-  const rows: Array<Record<string, any>> = [];
+  const rows: Array<{
+    batch_id: string;
+    file_type: UploadFileType;
+    file_name: string;
+    mime_type: string;
+    file_size: number;
+    chunk_index: number;
+    total_chunks: number;
+    chunk_base64: string;
+  }> = [];
 
   for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
     const start = chunkIndex * CHUNK_BYTES;
