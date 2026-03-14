@@ -9,6 +9,7 @@ import { useFileProcessor } from '@/hooks/useFileProcessor';
 import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
 import { useGoalProcessor } from '@/hooks/useGoalProcessor';
 import { useGoalMetricsProcessor } from '@/hooks/useGoalMetricsProcessor';
+import { useTemporaryUploadStorage } from '@/hooks/useTemporaryUploadStorage';
 import type { GoalRecord, PedidoRecord } from '@/types/goals';
 import { PeriodSelector } from '@/components/PeriodSelector';
 import { GoalChart } from '@/components/GoalChart';
@@ -20,6 +21,7 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { ETNDetailModal } from '@/components/ETNDetailModal';
 import { ETNComparativeAnalysis } from '@/components/ETNComparativeAnalysis';
 import { DEMO_DATA } from '@/lib/demoData';
+import { isDemoCommitmentCategory, isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { saveToCache, loadFromCache, clearCache, getCacheInfo } from '@/hooks/useDataCache';
 
 export default function Home() {
