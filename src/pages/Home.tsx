@@ -510,36 +510,49 @@ export default function Home() {
     setWorkerResult(null);
     setLightOpportunities([]);
     setLightActions([]);
+
+    try {
+      await persistFilesTemporarily({
+        opportunities: oppFile,
+        commitments: actFile,
+        goals: goalFile,
+        orders: pedidoFile,
+      });
+    } catch (persistErr) {
+      console.warn('[UPLOAD_DB] Falha ao persistir upload temporário:', persistErr);
+    }
+
     try {
       const workerRes = await processFilesWithWorker(oppFile, actFile);
       setWorkerResult(workerRes);
-      // Setar dados brutos para useGoalMetricsProcessor
+
       if (workerRes?.rawOpportunities) setOpportunities(workerRes.rawOpportunities);
       if (workerRes?.rawActions) setActions(workerRes.rawActions);
-      // Processar metas e pedidos automaticamente se arquivos foram selecionados
-      if (goalFile) {
-        try {
-          const goalsData = await parseGoalsFile(goalFile);
-          setGoals(goalsData);
-        } catch (goalErr) {
-          console.warn('Erro ao processar metas:', goalErr);
-        }
+
+      const [goalsResult, pedidosResult] = await Promise.allSettled([
+        goalFile ? parseGoalsFile(goalFile) : Promise.resolve([]),
+        pedidoFile ? parsePedidosFile(pedidoFile) : Promise.resolve([]),
+      ]);
+
+      if (goalsResult.status === 'fulfilled') {
+        setGoals(goalsResult.value);
+      } else {
+        console.warn('[GOALS_LOAD] Erro ao processar metas:', goalsResult.reason);
       }
-      if (pedidoFile) {
-        try {
-          const pedidosData = await parsePedidosFile(pedidoFile);
-          setPedidos(pedidosData);
-        } catch (pedErr) {
-          console.warn('Erro ao processar pedidos:', pedErr);
-        }
+
+      if (pedidosResult.status === 'fulfilled') {
+        setPedidos(pedidosResult.value);
+      } else {
+        console.warn('[GOALS_LOAD] Erro ao processar pedidos:', pedidosResult.reason);
       }
+
       try {
         await saveToCache(
           workerRes,
           oppFile?.name || '',
           actFile?.name || '',
           workerRes?.records?.length || 0,
-          workerRes?.kpis?.totalAgendas || 0
+          workerRes?.kpis?.totalAgendas || 0,
         );
         setCacheInfo({
           exists: true,
@@ -556,7 +569,7 @@ export default function Home() {
       console.error('Erro no Web Worker:', err);
       setError(err instanceof Error ? err.message : 'Erro ao processar arquivos');
     }
-  }, [oppFile, actFile, goalFile, pedidoFile, processFilesWithWorker, parseGoalsFile, parsePedidosFile]);
+  }, [oppFile, actFile, goalFile, pedidoFile, processFilesWithWorker, parseGoalsFile, parsePedidosFile, persistFilesTemporarily]);
 
   const handleOppFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
