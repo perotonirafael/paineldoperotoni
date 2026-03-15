@@ -10,8 +10,9 @@ interface UploadFilesInput {
   orders?: File | null;
 }
 
-const CHUNK_BYTES = 256 * 1024;
-const INSERT_BATCH_SIZE = 40;
+const CHUNK_BYTES = 64 * 1024;
+const INSERT_BATCH_SIZE = 8;
+const MAX_FILE_SIZE_FOR_DB_CHUNKS = 10 * 1024 * 1024;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -114,17 +115,35 @@ export function useTemporaryUploadStorage() {
         throw new Error(`Falha ao limpar snapshot anterior: ${deleteError.message}`);
       }
 
-      if (files.opportunities) {
-        await insertChunks(batchId, 'opportunities', files.opportunities);
-      }
-      if (files.commitments) {
-        await insertChunks(batchId, 'commitments', files.commitments);
-      }
-      if (files.goals) {
-        await insertChunks(batchId, 'goals', files.goals);
-      }
-      if (files.orders) {
-        await insertChunks(batchId, 'orders', files.orders);
+      const filesToPersist: Array<{ fileType: UploadFileType; file: File | null | undefined }> = [
+        { fileType: 'opportunities', file: files.opportunities },
+        { fileType: 'commitments', file: files.commitments },
+        { fileType: 'goals', file: files.goals },
+        { fileType: 'orders', file: files.orders },
+      ];
+
+      for (const { fileType, file } of filesToPersist) {
+        if (!file) continue;
+
+        if (file.size > MAX_FILE_SIZE_FOR_DB_CHUNKS) {
+          console.info('[UPLOAD_DB] Arquivo grande salvo apenas como metadata no snapshot', {
+            fileType,
+            fileName: file.name,
+            fileSize: file.size,
+            threshold: MAX_FILE_SIZE_FOR_DB_CHUNKS,
+          });
+          continue;
+        }
+
+        try {
+          await insertChunks(batchId, fileType, file);
+        } catch (chunkErr) {
+          console.warn('[UPLOAD_DB] Falha ao salvar chunks, seguindo com processamento local', {
+            fileType,
+            fileName: file.name,
+            error: chunkErr instanceof Error ? chunkErr.message : String(chunkErr),
+          });
+        }
       }
 
       console.info('[UPLOAD_DB] Snapshot temporário salvo com sucesso', {
