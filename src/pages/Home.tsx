@@ -189,6 +189,8 @@ export default function Home() {
     });
   }, [processedData, selYears, selMonths, selReps, selResp, selETN, selStages, selProbs, selAgenda, selAccounts, selTypes, selSubtipos]);
 
+  const goalMetricas = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
+
   // Ajuste: Taxa de Conversão por ETN (somente Demonstração Presencial/Remota)
   // Quando actions está disponível (upload direto ou demo), calcular localmente.
   // Quando actions está vazio (cache), usar o etnConversionTop10 pré-calculado pelo worker.
