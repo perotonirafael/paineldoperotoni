@@ -72,6 +72,7 @@ export const useGoalMetricsProcessor = (
     };
 
     const months = periodToMonths[selectedPeriod] || [];
+    console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goals: goals.length, pedidos: pedidos.length });
     if (!months.length || !goals.length) {
       console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', goals.length);
       return [];

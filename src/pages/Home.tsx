@@ -427,12 +427,10 @@ export default function Home() {
         const oppId = (a['Oportunidade ID'] || '').toString().trim();
         if (!oppId) continue;
 
-        // Categorias válidas para KPIs Fechada e Ganha / Perdida
         if (isValidKPICategory(categoria)) {
           validCatOppIds.add(oppId);
         }
 
-        // Demo para Taxa de Conversão
         if (isDemoCommitmentCategory(categoria)) {
           demoOppKeys.add(oppId);
         }
@@ -450,6 +448,10 @@ export default function Home() {
         }
       }
     }
+
+    // Se não houver nenhuma categoria qualificada, não bloquear Ganhas/Perdidas pelos compromissos
+    const shouldGateByCategory = validCatOppIds.size > 0;
+
     const seenOps = new Set<string>();
     const seenGanhas = new Set<string>();
     const seenPerdidas = new Set<string>();
@@ -463,28 +465,47 @@ export default function Home() {
     for (const r of filteredData) {
       if (!seenOps.has(r.oppId)) {
         seenOps.add(r.oppId);
-        // Fechada e Ganha: só conta se OP tem compromisso com categoria válida
-        if ((r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR') && validCatOppIds.has(r.oppId)) {
+
+        const isGanha = r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR';
+        const isPerdida = r.etapa === 'Fechada e Perdida';
+        const hasValidCategory = validCatOppIds.has(r.oppId);
+
+        // Fechada e Ganha
+        if (isGanha && (!shouldGateByCategory || hasValidCategory)) {
           seenGanhas.add(r.oppId);
           ganhasValor += (r.valorUnificado ?? r.valorFechadoReconhecido ?? r.valorFechado);
           if (demoOppKeys.has(r.oppId)) seenGanhasDemo.add(r.oppId);
         }
-        // Fechada e Perdida: só conta se OP tem compromisso com categoria válida
-        if (r.etapa === 'Fechada e Perdida' && validCatOppIds.has(r.oppId)) {
+
+        // Fechada e Perdida
+        if (isPerdida && (!shouldGateByCategory || hasValidCategory)) {
           seenPerdidas.add(r.oppId);
           perdidasValor += (r.valorUnificado ?? r.valorReconhecido ?? r.valorPrevisto);
           if (demoOppKeys.has(r.oppId)) seenPerdidasDemo.add(r.oppId);
         }
       }
+
       totalAgendas += r.agenda;
-      if (r.probNum >= 75 && r.etapa !== 'Fechada e Ganha' && r.etapa !== 'Fechada e Ganha TR' && r.etapa !== 'Fechada e Perdida') {
+      if (
+        r.probNum >= 75 &&
+        r.etapa !== 'Fechada e Ganha' &&
+        r.etapa !== 'Fechada e Ganha TR' &&
+        r.etapa !== 'Fechada e Perdida'
+      ) {
         totalForecast += (r.valorUnificado ?? r.valorReconhecido ?? r.valorPrevisto);
       }
     }
 
-    // Taxa de Conversão: apenas OPs com Demo Presencial/Remota
-    const totalDemo = seenGanhasDemo.size + seenPerdidasDemo.size;
-    const winRate = totalDemo > 0 ? ((seenGanhasDemo.size / totalDemo) * 100).toFixed(1) : '0';
+    // Taxa de Conversão: apenas OPs com Demo Presencial/Remota (se existirem);
+    // fallback: se não houver nenhuma OP com demo, usar todas as Ganhas/Perdidas
+    let totalDemo = seenGanhasDemo.size + seenPerdidasDemo.size;
+    let winsForRate = seenGanhasDemo.size;
+    if (totalDemo === 0) {
+      totalDemo = seenGanhas.size + seenPerdidas.size;
+      winsForRate = seenGanhas.size;
+    }
+    const winRate = totalDemo > 0 ? ((winsForRate / totalDemo) * 100).toFixed(1) : '0';
+
     return {
       totalOps: seenOps.size,
       ganhas: seenGanhas.size,
