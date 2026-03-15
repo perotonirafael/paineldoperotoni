@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ProcessedRecord, Action } from '@/hooks/useDataProcessor';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Cell, LineChart, Line, CartesianGrid, Legend, Funnel, FunnelChart,
 } from 'recharts';
-import { TrendingUp, DollarSign, AlertCircle, Zap, BarChart3 } from 'lucide-react';
+import { TrendingUp, BarChart3 } from 'lucide-react';
+import { isEligibleCommitmentCategory, isDemoCommitmentCategory } from '@/lib/commitmentCategories';
 
 const COLORS = [
   '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -33,6 +34,8 @@ const tooltipStyle = {
     boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
   },
 };
+
+const MATRIX_PAGE_SIZE = 15;
 
 function DateRangeFooter({ data }: { data: ProcessedRecord[] }) {
   const range = useMemo(() => {
@@ -64,7 +67,50 @@ interface Props {
 }
 
 export function ETNComparativeAnalysis({ data, actions }: Props) {
-  // 1. Matriz de Performance ETN (Taxa de Conversão, Valor Médio, Ciclo, Agendas/Op)
+  const [matrixPage, setMatrixPage] = useState(0);
+
+  // Build set of oppIds with eligible categories (for ganhas/perdidas)
+  const eligibleOppIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of actions) {
+      const categoria = (a['Categoria'] || '').toString().trim();
+      if (!isEligibleCommitmentCategory(categoria)) continue;
+      const oppId = (a['Oportunidade ID'] || '').toString().trim();
+      if (oppId) set.add(oppId);
+    }
+    // Fallback: use processedData categories
+    if (set.size === 0) {
+      for (const r of data) {
+        if (r.categoriaCompromisso && isEligibleCommitmentCategory(r.categoriaCompromisso)) {
+          set.add(r.oppId);
+        }
+      }
+    }
+    return set;
+  }, [data, actions]);
+
+  // Build set of oppIds with demo categories (for conversion rate)
+  const demoOppIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of actions) {
+      const categoria = (a['Categoria'] || '').toString().trim();
+      if (!isDemoCommitmentCategory(categoria)) continue;
+      const oppId = (a['Oportunidade ID'] || '').toString().trim();
+      if (oppId) set.add(oppId);
+    }
+    if (set.size === 0) {
+      for (const r of data) {
+        if (r.categoriaCompromisso && isDemoCommitmentCategory(r.categoriaCompromisso)) {
+          set.add(r.oppId);
+        }
+      }
+    }
+    return set;
+  }, [data, actions]);
+
+  const shouldGateByCategory = eligibleOppIds.size > 0;
+
+  // 1. Matriz de Performance ETN
   const performanceMatrix = useMemo(() => {
     const etnMap = new Map<string, {
       total: number;
@@ -73,27 +119,43 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       lostValue: number;
       totalValue: number;
       agendas: number;
-      daysInStage: number[];
+      // Demo-only for conversion rate
+      demoWon: number;
+      demoLost: number;
     }>();
 
-    // Processar oportunidades
+    const seen = new Set<string>();
+
     for (const r of data) {
       if (!etnMap.has(r.etn)) {
-        etnMap.set(r.etn, { total: 0, won: 0, wonValue: 0, lostValue: 0, totalValue: 0, agendas: 0, daysInStage: [] });
+        etnMap.set(r.etn, { total: 0, won: 0, wonValue: 0, lostValue: 0, totalValue: 0, agendas: 0, demoWon: 0, demoLost: 0 });
       }
       const stats = etnMap.get(r.etn)!;
-      stats.total++;
-      stats.totalValue += (r.valorUnificado ?? r.valorPrevisto);
-      if (r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR') {
-        stats.won++;
-        stats.wonValue += (r.valorUnificado ?? r.valorFechado);
-      } else if (r.etapa === 'Fechada e Perdida') {
-        stats.lostValue += (r.valorUnificado ?? r.valorPrevisto);
+
+      const key = `${r.etn}||${r.oppId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const isGanha = r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR';
+        const isPerdida = r.etapa === 'Fechada e Perdida';
+        const hasEligible = eligibleOppIds.has(r.oppId);
+        const hasDemo = demoOppIds.has(r.oppId);
+
+        if (isGanha && (!shouldGateByCategory || hasEligible)) {
+          stats.won++;
+          stats.wonValue += (r.valorUnificado ?? r.valorFechado);
+          stats.total++;
+          if (hasDemo) stats.demoWon++;
+        } else if (isPerdida && (!shouldGateByCategory || hasEligible)) {
+          stats.lostValue += (r.valorUnificado ?? r.valorPrevisto);
+          stats.total++;
+          if (hasDemo) stats.demoLost++;
+        }
+        stats.totalValue += (r.valorUnificado ?? r.valorPrevisto);
       }
       stats.agendas += r.agenda;
     }
 
-    // Processar ações para contar agendas por ETN
+    // Count agendas from actions per ETN
     const agendasByETN = new Map<string, number>();
     for (const a of actions) {
       const etn = (a['Usuário'] || a['Usuario'] || '').trim();
@@ -101,39 +163,60 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     }
 
     return Array.from(etnMap.entries())
-      .map(([etn, stats]) => ({
-        etn,
-        total: stats.total,
-        won: stats.won,
-        winRate: stats.total > 0 ? ((stats.won / stats.total) * 100).toFixed(1) : '0',
-        wonValue: stats.wonValue,
-        lostValue: stats.lostValue,
-        avgValue: stats.total > 0 ? (stats.totalValue / stats.total).toFixed(0) : '0',
-        agendas: agendasByETN.get(etn) || 0,
-        agendaPerOp: stats.total > 0 ? ((agendasByETN.get(etn) || 0) / stats.total).toFixed(2) : '0',
-        valuePerAgenda: (agendasByETN.get(etn) || 0) > 0 
-          ? (stats.wonValue / (agendasByETN.get(etn) || 1)).toFixed(0) 
-          : '0',
-      }))
+      .map(([etn, stats]) => {
+        // Conversion rate: only demo presencial/remota
+        const demoTotal = stats.demoWon + stats.demoLost;
+        const winRate = demoTotal > 0
+          ? ((stats.demoWon / demoTotal) * 100).toFixed(1)
+          : stats.total > 0 ? ((stats.won / stats.total) * 100).toFixed(1) : '0';
+        const totalAgendas = agendasByETN.get(etn) || 0;
+        return {
+          etn,
+          total: stats.total,
+          won: stats.won,
+          winRate,
+          wonValue: stats.wonValue,
+          lostValue: stats.lostValue,
+          avgValue: stats.total > 0 ? (stats.totalValue / stats.total).toFixed(0) : '0',
+          agendas: totalAgendas,
+          agendaPerOp: stats.total > 0 ? (totalAgendas / stats.total).toFixed(2) : '0',
+          valuePerAgenda: totalAgendas > 0
+            ? (stats.wonValue / totalAgendas).toFixed(0)
+            : '0',
+        };
+      })
       .sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
-  }, [data, actions]);
+  }, [data, actions, eligibleOppIds, demoOppIds, shouldGateByCategory]);
 
-  // 2. Evolução de Compromissos Individual por ETN (respeitando filtros)
+  const matrixTotalPages = Math.ceil(performanceMatrix.length / MATRIX_PAGE_SIZE);
+  const matrixPaged = performanceMatrix.slice(matrixPage * MATRIX_PAGE_SIZE, (matrixPage + 1) * MATRIX_PAGE_SIZE);
+
+  // 2. Evolução de Compromissos por ETN (filtered by ETNs in data, using eligible categories)
   const commitmentEvolution = useMemo(() => {
+    // Get ETNs present in filtered data
+    const etnsInData = new Set<string>();
+    for (const r of data) {
+      if (r.etn && r.etn !== 'Sem Agenda') etnsInData.add(r.etn);
+    }
+
     const etnMonthlyMap = new Map<string, Map<string, number>>();
 
     for (const a of actions) {
       const etn = (a['Usuário'] || a['Usuario'] || '').trim();
+      if (!etnsInData.has(etn)) continue;
+
+      // Only count eligible commitment categories
+      const categoria = (a['Categoria'] || '').toString().trim();
+      if (!isEligibleCommitmentCategory(categoria)) continue;
+
       const date = (a['Data'] || '').trim();
       if (!date) continue;
 
-      const [day, month, year] = date.split('/');
+      const parts = date.split('/');
+      if (parts.length < 3) continue;
+      const month = parts[1];
+      const year = parts[2];
       const key = `${month}/${year}`;
-
-      // Verificar se a ação está dentro dos dados filtrados
-      const oppId = (a['Oportunidade ID'] || '').trim();
-      const oppInData = data.some(r => r.oppId === oppId);
-      if (!oppInData) continue;
 
       if (!etnMonthlyMap.has(etn)) {
         etnMonthlyMap.set(etn, new Map());
@@ -142,13 +225,9 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       monthMap.set(key, (monthMap.get(key) || 0) + 1);
     }
 
-    // Converter para formato de gráfico (por ETN)
-    const etnChartData: any[] = [];
     const allMonths = new Set<string>();
     etnMonthlyMap.forEach((monthMap) => {
-      monthMap.forEach((_, month) => {
-        allMonths.add(month);
-      });
+      monthMap.forEach((_, month) => allMonths.add(month));
     });
 
     const sortedMonths = Array.from(allMonths).sort((a, b) => {
@@ -157,63 +236,21 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       return yA === yB ? mA - mB : yA - yB;
     });
 
-    etnMonthlyMap.forEach((monthMap, etn) => {
-      const etnData: any = { etn };
-      for (const month of sortedMonths) {
-        etnData[month] = monthMap.get(month) || 0;
-      }
-      etnChartData.push(etnData);
+    // Build chart data: each month is a data point, each ETN is a line
+    const chartData: any[] = sortedMonths.map(month => {
+      const point: any = { month };
+      etnMonthlyMap.forEach((monthMap, etn) => {
+        point[etn] = monthMap.get(month) || 0;
+      });
+      return point;
     });
 
-    return { chartData: etnChartData, months: sortedMonths };
+    const etnList = Array.from(etnMonthlyMap.keys());
+
+    return { chartData, etnList };
   }, [data, actions]);
 
-  // 3. Valor Total Ganho por ETN
-  const valueWonByETN = useMemo(() => {
-    const etnMap = new Map<string, number>();
-    for (const r of data) {
-      if (r.etapa === 'Fechada e Ganha' || r.etapa === 'Fechada e Ganha TR') {
-        etnMap.set(r.etn, (etnMap.get(r.etn) || 0) + (r.valorUnificado ?? r.valorFechado));
-      }
-    }
-    const result: any[] = [];
-    etnMap.forEach((value, etn) => {
-      result.push({ etn, value });
-    });
-    return result.sort((a, b) => b.value - a.value);
-  }, [data]);
-
-  // 4. Valor Total Perdido por ETN
-  const valueLostByETN = useMemo(() => {
-    const etnMap = new Map<string, number>();
-    for (const r of data) {
-      if (r.etapa === 'Fechada e Perdida') {
-        etnMap.set(r.etn, (etnMap.get(r.etn) || 0) + (r.valorUnificado ?? r.valorPrevisto));
-      }
-    }
-    const result: any[] = [];
-    etnMap.forEach((value, etn) => {
-      result.push({ etn, value });
-    });
-    return result.sort((a, b) => b.value - a.value);
-  }, [data]);
-
-  // 5. Valor em Risco (pipeline aberto) por ETN
-  const valueAtRiskByETN = useMemo(() => {
-    const etnMap = new Map<string, number>();
-    for (const r of data) {
-      if (r.etapa !== 'Fechada e Ganha' && r.etapa !== 'Fechada e Ganha TR' && r.etapa !== 'Fechada e Perdida') {
-        etnMap.set(r.etn, (etnMap.get(r.etn) || 0) + (r.valorUnificado ?? r.valorPrevisto));
-      }
-    }
-    const result: any[] = [];
-    etnMap.forEach((value, etn) => {
-      result.push({ etn, value });
-    });
-    return result.sort((a, b) => b.value - a.value);
-  }, [data]);
-
-  // 6. Valor por Etapa (Funil) - Dynamic stages from data
+  // 3. Funil de Valor por Etapa
   const valueByStage = useMemo(() => {
     const stageMap = new Map<string, { value: number; count: number }>();
     const seen = new Set<string>();
@@ -263,7 +300,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
               </tr>
             </thead>
             <tbody>
-              {performanceMatrix.map((row) => (
+              {matrixPaged.map((row) => (
                 <tr key={row.etn} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium">{row.etn}</td>
                   <td className="px-4 py-2 text-right">{row.total}</td>
@@ -286,6 +323,29 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
             </tbody>
           </table>
         </div>
+        {matrixTotalPages > 1 && (
+          <div className="p-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/50 mt-2">
+            <p className="text-xs text-gray-500">
+              Página {matrixPage + 1} de {matrixTotalPages} · {performanceMatrix.length} registros
+            </p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setMatrixPage(p => Math.max(0, p - 1))}
+                disabled={matrixPage === 0}
+                className="px-3 py-1 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-30 transition-colors font-medium"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setMatrixPage(p => Math.min(matrixTotalPages - 1, p + 1))}
+                disabled={matrixPage >= matrixTotalPages - 1}
+                className="px-3 py-1 text-xs rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-30 transition-colors font-medium"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
         <DateRangeFooter data={data} />
       </div>
 
@@ -295,23 +355,27 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
           <TrendingUp className="w-5 h-5 text-blue-600" />
           Evolução de Compromissos Realizados por ETN
         </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Apenas categorias elegíveis: Demonstração, Análise de Aderência, ETN Apoio, RFP/RFI, Termo de Referência, Edital
+        </p>
         {commitmentEvolution.chartData.length > 0 ? (
           <>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={350}>
               <LineChart data={commitmentEvolution.chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="etn" />
-                <YAxis />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                <YAxis allowDecimals={false} />
                 <Tooltip {...tooltipStyle} />
-                <Legend />
-                {commitmentEvolution.months.map((month, idx) => (
+                <Legend wrapperStyle={{ fontSize: '11px' }} />
+                {commitmentEvolution.etnList.map((etn, idx) => (
                   <Line
-                    key={month}
+                    key={etn}
                     type="monotone"
-                    dataKey={month}
+                    dataKey={etn}
                     stroke={COLORS[idx % COLORS.length]}
                     strokeWidth={2}
-                    dot={false}
+                    dot={{ r: 3 }}
+                    name={etn.length > 25 ? etn.slice(0, 25) + '...' : etn}
                   />
                 ))}
               </LineChart>
@@ -319,65 +383,11 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
             <DateRangeFooter data={data} />
           </>
         ) : (
-          <p className="text-gray-500 text-center py-8">Sem dados de compromissos</p>
+          <p className="text-gray-500 text-center py-8">Sem dados de compromissos elegíveis para os filtros aplicados</p>
         )}
       </div>
 
-      {/* Seção 3: Valor Ganho, Perdido e Risco */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Valor Ganho */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-green-600">
-            <DollarSign className="w-4 h-4" />
-            Valor Total Ganho
-          </h4>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={valueWonByETN}>
-              <XAxis dataKey="etn" angle={-45} textAnchor="end" height={80} />
-              <YAxis />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => formatCurrency(typeof v === 'number' ? v : 0)} />
-              <Bar dataKey="value" fill="#10b981" />
-            </BarChart>
-          </ResponsiveContainer>
-          <DateRangeFooter data={data} />
-        </div>
-
-        {/* Valor Perdido */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-red-600">
-            <AlertCircle className="w-4 h-4" />
-            Valor Total Perdido
-          </h4>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={valueLostByETN}>
-              <XAxis dataKey="etn" angle={-45} textAnchor="end" height={80} />
-              <YAxis />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => formatCurrency(typeof v === 'number' ? v : 0)} />
-              <Bar dataKey="value" fill="#ef4444" />
-            </BarChart>
-          </ResponsiveContainer>
-          <DateRangeFooter data={data} />
-        </div>
-
-        {/* Valor em Risco */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h4 className="text-sm font-semibold mb-4 flex items-center gap-2 text-orange-600">
-            <Zap className="w-4 h-4" />
-            Valor em Risco (Pipeline)
-          </h4>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={valueAtRiskByETN}>
-              <XAxis dataKey="etn" angle={-45} textAnchor="end" height={80} />
-              <YAxis />
-              <Tooltip {...tooltipStyle} formatter={(v: any) => formatCurrency(typeof v === 'number' ? v : 0)} />
-              <Bar dataKey="value" fill="#f59e0b" />
-            </BarChart>
-          </ResponsiveContainer>
-          <DateRangeFooter data={data} />
-        </div>
-      </div>
-
-      {/* Seção 4: Funil de Valor por Etapa */}
+      {/* Seção 3: Funil de Valor por Etapa */}
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Funil de Valor por Etapa</h3>
         <ResponsiveContainer width="100%" height={350}>
@@ -409,5 +419,3 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     </div>
   );
 }
-
-

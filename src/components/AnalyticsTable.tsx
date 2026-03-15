@@ -157,8 +157,8 @@ function AnalyticsTableInner({ data }: Props) {
                 <td className="px-3 py-2 truncate text-gray-700">{r.representante}</td>
                 <td className="px-3 py-2 truncate text-gray-700">{r.responsavel}</td>
                 <td className="px-3 py-2 truncate text-gray-700">{r.etn}</td>
-                <td className="px-3 py-2">
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
                     r.etapa.includes('Ganha') ? 'bg-emerald-100 text-emerald-700' :
                     r.etapa.includes('Perdida') ? 'bg-red-100 text-red-700' :
                     r.etapa.includes('Proposta') ? 'bg-amber-100 text-amber-700' :

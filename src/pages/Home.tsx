@@ -1048,7 +1048,6 @@ export default function Home() {
                       </label>
                     </div>
                   )}
-                  <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
                 </div>
               </div>
               <GoalChart metricas={goalMetricas} title="" />
