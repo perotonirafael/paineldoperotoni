@@ -167,14 +167,50 @@ export const useGoalProcessor = () => {
     try {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(worksheet) as Record<string, any>[];
 
-      console.log('[METAS] Total rows from XLSX:', rows.length);
-      if (rows.length === 0) return [];
+      // Tentar encontrar automaticamente a planilha que contém as colunas de metas
+      let targetSheetName: string | null = null;
+      let headers: string[] = [];
 
-      const headers = Object.keys(rows[0]).map(cleanHeaderName);
-      console.log('[METAS] Headers detectados:', headers);
+      for (const sheetName of workbook.SheetNames) {
+        const ws = workbook.Sheets[sheetName];
+        const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true }) as any[][];
+        if (!matrix || matrix.length < 2) continue;
+
+        const headerRow = (matrix[0] || []).map((h) => cleanHeaderName(String(h ?? '')));
+        const hasProduto = !!findHeaderByCandidates(headerRow, ['Produto']);
+        const hasIdUsuario = !!findHeaderByCandidates(headerRow, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
+        const hasRubrica = !!findHeaderByCandidates(headerRow, ['Rubrica']);
+
+        if (hasProduto && hasIdUsuario && hasRubrica) {
+          targetSheetName = sheetName;
+          headers = headerRow;
+          break;
+        }
+      }
+
+      if (!targetSheetName) {
+        // Fallback: primeira planilha
+        targetSheetName = workbook.SheetNames[0];
+        const ws = workbook.Sheets[targetSheetName];
+        const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true }) as any[][];
+        if (!matrix || matrix.length < 2) {
+          console.log('[METAS] Planilha sem linhas de dados:', targetSheetName);
+          return [];
+        }
+        headers = (matrix[0] || []).map((h) => cleanHeaderName(String(h ?? '')));
+      }
+
+      const worksheet = workbook.Sheets[targetSheetName];
+      const matrix = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, raw: true }) as any[][];
+      if (!matrix || matrix.length < 2) {
+        console.log('[METAS] Planilha sem linhas de dados (2):', targetSheetName);
+        return [];
+      }
+
+      const headerRow = (matrix[0] || []).map((h) => cleanHeaderName(String(h ?? '')));
+      headers = headerRow;
+      console.log('[METAS] Sheet selecionada:', targetSheetName, 'Headers:', headers);
 
       const colProduto = resolveHeader(headers, ['Produto']);
       const colIdUsuario = resolveHeader(headers, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
@@ -193,34 +229,73 @@ export const useGoalProcessor = () => {
       const colDezembro = resolveHeader(headers, ['Dezembro']);
       const colTotalAno = resolveHeader(headers, ['Total Ano', 'Total']);
 
-      const goals: GoalRecord[] = rows
-        .filter((row) => {
-          const produto = String(row[colProduto] || '').trim();
-          const idUsuario = String(row[colIdUsuario] || '').trim();
-          return Boolean(produto && idUsuario);
-        })
-        .map((row) => ({
-          produto: String(row[colProduto] || '').trim(),
-          idUsuario: String(row[colIdUsuario] || '').trim(),
-          rubrica: String(row[colRubrica] || '').trim(),
-          janeiro: parseGoalValue(row[colJaneiro]),
-          fevereiro: parseGoalValue(row[colFevereiro]),
-          marco: parseGoalValue(row[colMarco]),
-          primeiroTrimestre: parseGoalValue(row['1ºTri'] ?? row['1º Tri'] ?? row['1ºTrimestre'] ?? row['1 Tri']),
-          abril: parseGoalValue(row[colAbril]),
-          maio: parseGoalValue(row[colMaio]),
-          junho: parseGoalValue(row[colJunho]),
-          segundoTrimestre: parseGoalValue(row['2ºTri'] ?? row['2º Tri'] ?? row['2ºTrimestre'] ?? row['2 Tri']),
-          julho: parseGoalValue(row[colJulho]),
-          agosto: parseGoalValue(row[colAgosto]),
-          setembro: parseGoalValue(row[colSetembro]),
-          terceiroTrimestre: parseGoalValue(row['3ºTri'] ?? row['3º Tri'] ?? row['3ºTrimestre'] ?? row['3 Tri']),
-          outubro: parseGoalValue(row[colOutubro]),
-          novembro: parseGoalValue(row[colNovembro]),
-          dezembro: parseGoalValue(row[colDezembro]),
-          quartoTrimestre: parseGoalValue(row['4ºTri'] ?? row['4º Tri'] ?? row['4ºTrimestre'] ?? row['4 Tri']),
-          totalAno: parseGoalValue(row[colTotalAno]),
-        }));
+      const idxProduto = headers.indexOf(colProduto);
+      const idxIdUsuario = headers.indexOf(colIdUsuario);
+      const idxRubrica = headers.indexOf(colRubrica);
+      const idxJaneiro = headers.indexOf(colJaneiro);
+      const idxFevereiro = headers.indexOf(colFevereiro);
+      const idxMarco = headers.indexOf(colMarco);
+      const idxAbril = headers.indexOf(colAbril);
+      const idxMaio = headers.indexOf(colMaio);
+      const idxJunho = headers.indexOf(colJunho);
+      const idxJulho = headers.indexOf(colJulho);
+      const idxAgosto = headers.indexOf(colAgosto);
+      const idxSetembro = headers.indexOf(colSetembro);
+      const idxOutubro = headers.indexOf(colOutubro);
+      const idxNovembro = headers.indexOf(colNovembro);
+      const idxDezembro = headers.indexOf(colDezembro);
+      const idxTotalAno = headers.indexOf(colTotalAno);
+
+      if (idxProduto === -1 || idxIdUsuario === -1 || idxRubrica === -1) {
+        console.warn('[METAS] Colunas obrigatórias não encontradas em', targetSheetName, {
+          colProduto,
+          colIdUsuario,
+          colRubrica,
+        });
+        return [];
+      }
+
+      const goals: GoalRecord[] = [];
+
+      for (let i = 1; i < matrix.length; i++) {
+        const row = matrix[i];
+        if (!row || row.length === 0) continue;
+
+        const produto = String(row[idxProduto] ?? '').trim();
+        const idUsuario = String(row[idxIdUsuario] ?? '').trim();
+        if (!produto || !idUsuario) continue;
+
+        const getVal = (idx: number) => (idx >= 0 && idx < row.length ? parseGoalValue(row[idx]) : 0);
+
+        const goal: GoalRecord = {
+          produto,
+          idUsuario,
+          rubrica: String(row[idxRubrica] ?? '').trim(),
+          janeiro: getVal(idxJaneiro),
+          fevereiro: getVal(idxFevereiro),
+          marco: getVal(idxMarco),
+          primeiroTrimestre: 0,
+          abril: getVal(idxAbril),
+          maio: getVal(idxMaio),
+          junho: getVal(idxJunho),
+          segundoTrimestre: 0,
+          julho: getVal(idxJulho),
+          agosto: getVal(idxAgosto),
+          setembro: getVal(idxSetembro),
+          terceiroTrimestre: 0,
+          outubro: getVal(idxOutubro),
+          novembro: getVal(idxNovembro),
+          dezembro: getVal(idxDezembro),
+          quartoTrimestre: 0,
+          totalAno: getVal(idxTotalAno),
+        };
+
+        goals.push(goal);
+
+        if (i % 2000 === 0) {
+          await yieldToMainThread();
+        }
+      }
 
       console.log('[METAS] Parsed goals:', goals.length);
       if (goals.length > 0) {
