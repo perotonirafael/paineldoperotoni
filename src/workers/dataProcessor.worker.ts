@@ -701,9 +701,12 @@ function processData(opportunities: any[], actions: any[]) {
   };
 }
 
-// Wrapper that also returns raw data for goal metrics processing
-function processDataWithRaw(opportunities: any[], actions: any[]) {
+const RAW_TRANSFER_LIMIT = 25000;
+
+function buildProcessResult(opportunities: any[], actions: any[], includeRawData: boolean) {
   const result = processData(opportunities, actions);
+  if (!includeRawData) return result;
+
   return {
     ...result,
     rawOpportunities: opportunities,
