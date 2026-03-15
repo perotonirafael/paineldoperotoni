@@ -51,9 +51,11 @@ export interface GoalMetrics {
   etn: string;
   periodo: string; // "Janeiro", "1ºTrimestre", etc
   metaLicencasServicos: number; // Setup + Licenças + Serviços Não Recorrentes
-  realLicencasServicos: number;
+  realLicencasServicos: number; // Licença + Serviço (somados)
+  realLicenca: number; // Produto Valor Licença (individual)
+  realServico: number; // Serviço Valor Líquido (individual)
   metaRecorrente: number;
-  realRecorrente: number;
+  realRecorrente: number; // Produto Valor Manutenção
   percentualAtingimento: number; // (realLicencasServicos/metaLicencasServicos * 0.5) + (realRecorrente/metaRecorrente * 0.5)
 }
 

@@ -13,10 +13,6 @@ function norm(s: string): string {
     .trim();
 }
 
-const SIMULATED_GOAL_USERS: Record<string, string> = {
-  '11124': 'Rafael Perottone',
-};
-
 function resolveColumns(rows: Record<string, any>[], type: 'actions' | 'opportunities') {
   const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
 
@@ -92,7 +88,11 @@ export const useGoalMetricsProcessor = (
       useRawDataset,
     });
 
-    // 1) Mapear user ERP ID -> ETN
+    // 0) Collect goal user IDs
+    const goalUserIds = new Set(goals.map((g) => g.idUsuario));
+    console.log('[GOAL_METRICS] Goal user IDs:', Array.from(goalUserIds));
+
+    // 1) Map user ERP ID → Name (only from data, NO hardcoded names)
     const userIdToName = new Map<string, string>();
 
     if (useRawDataset) {
@@ -113,11 +113,10 @@ export const useGoalMetricsProcessor = (
       }
     }
 
-    const goalUserIds = new Set(goals.map((g) => g.idUsuario));
+    // Resolve goal user names from actual data only
     const goalUserNames = new Map<string, string>();
-
     for (const userId of goalUserIds) {
-      const mapped = userIdToName.get(userId) || SIMULATED_GOAL_USERS[userId];
+      const mapped = userIdToName.get(userId);
       if (mapped) {
         goalUserNames.set(userId, mapped);
       }
@@ -125,6 +124,12 @@ export const useGoalMetricsProcessor = (
 
     console.log('[GOAL_METRICS] User ID → Name mapping:', Object.fromEntries(userIdToName));
     console.log('[GOAL_METRICS] Goal users resolved:', Object.fromEntries(goalUserNames));
+
+    // If no goal user could be resolved, we can't do the cross-reference
+    if (goalUserNames.size === 0) {
+      console.log('[GOAL_METRICS] No goal users could be resolved from data. Returning empty metrics.');
+      return [];
+    }
 
     // 2) Metas do período
     const hasTotalGestao = goals.some((g) => norm(g.produto).includes('total'));
@@ -167,7 +172,8 @@ export const useGoalMetricsProcessor = (
 
     console.log(`[GOAL_METRICS] Period="${selectedPeriod}" metaLicServicos=${metaTotalLicencasServicos} metaRecorrente=${metaTotalRecorrente}`);
 
-    // 3) Ações elegíveis -> oppIds + oppId->ETN
+    // 3) STRICT cross-reference: Only eligible compromissos from goal users
+    // Chain: Goal userId → Compromisso userId ERP (eligible category) → Oportunidade ID
     const oppIdsWithValidCategory = new Set<string>();
     const oppIdToEtn = new Map<string, Set<string>>();
 
@@ -175,6 +181,10 @@ export const useGoalMetricsProcessor = (
       for (const action of actions as Record<string, any>[]) {
         const categoria = getField(action, actionCols.category);
         if (!isEligibleCommitmentCategory(categoria)) continue;
+
+        const actionUserId = getField(action, actionCols.userId);
+        // STRICT: only consider compromissos from users that are in the goals file
+        if (!actionUserId || !goalUserIds.has(actionUserId)) continue;
 
         const oppId = getField(action, actionCols.oppId);
         if (!oppId) continue;
@@ -186,40 +196,31 @@ export const useGoalMetricsProcessor = (
           oppIdToEtn.get(oppId)!.add(etn);
         }
       }
-
-      // fallback: usar responsável da oportunidade para OPs elegíveis sem ETN
-      for (const opp of opportunities as Record<string, any>[]) {
-        const oppId = getField(opp, oppCols.oppId);
-        const responsible = getField(opp, oppCols.responsible);
-        if (!oppId || !responsible || !oppIdsWithValidCategory.has(oppId)) continue;
-        if (!oppIdToEtn.has(oppId)) oppIdToEtn.set(oppId, new Set());
-        oppIdToEtn.get(oppId)!.add(responsible);
-      }
     } else {
+      // Fallback for cached/processed data - match by ETN name
+      const goalNameSet = new Set(Array.from(goalUserNames.values()).map(n => norm(n)));
       for (const record of processedData) {
         if (!record.oppId) continue;
         if (!isEligibleCommitmentCategory(record.categoriaCompromisso || '')) continue;
 
-        oppIdsWithValidCategory.add(record.oppId);
         const etn = record.etn && record.etn !== 'Sem Agenda' ? record.etn : record.responsavel;
         if (!etn) continue;
+        // STRICT: only if ETN matches a goal user name
+        if (!goalNameSet.has(norm(etn))) continue;
+
+        oppIdsWithValidCategory.add(record.oppId);
         if (!oppIdToEtn.has(record.oppId)) oppIdToEtn.set(record.oppId, new Set());
         oppIdToEtn.get(record.oppId)!.add(etn);
       }
     }
 
+    // NO fallback to all records - if no eligible compromissos from goal users, return empty
     if (oppIdsWithValidCategory.size === 0) {
-      for (const record of processedData) {
-        if (!record.oppId) continue;
-        oppIdsWithValidCategory.add(record.oppId);
-        if (record.etn && record.etn !== 'Sem Agenda') {
-          if (!oppIdToEtn.has(record.oppId)) oppIdToEtn.set(record.oppId, new Set());
-          oppIdToEtn.get(record.oppId)!.add(record.etn);
-        }
-      }
+      console.log('[GOAL_METRICS] No eligible compromissos from goal users found. Returning empty metrics.');
+      return [];
     }
 
-    // 4) Oportunidades Fechada e Ganha elegíveis
+    // 4) Oportunidades Fechada e Ganha that have eligible compromissos from goal users
     const oppIdsFechadaGanha = new Set<string>();
 
     if (useRawDataset) {
@@ -240,32 +241,22 @@ export const useGoalMetricsProcessor = (
       }
     }
 
+    // Only ETNs that are goal users with won opps
     const allEtns = new Set<string>();
-    for (const [oppId, etns] of oppIdToEtn.entries()) {
-      if (!oppIdsFechadaGanha.has(oppId)) continue;
-      for (const etn of etns) allEtns.add(etn);
-    }
-
     for (const [, goalName] of goalUserNames) {
       allEtns.add(goalName);
     }
 
-    if (allEtns.size === 0) {
-      for (const r of processedData) {
-        if (r.etn && r.etn !== 'Sem Agenda') allEtns.add(r.etn);
-      }
-    }
-
     if (allEtns.size === 0) allEtns.add('TOTAL');
 
-    console.log('[GOAL_METRICS] OppIds with valid categories:', oppIdsWithValidCategory.size);
-    console.log('[GOAL_METRICS] OppIds Fechada e Ganha com categorias válidas:', oppIdsFechadaGanha.size);
+    console.log('[GOAL_METRICS] OppIds with valid categories from goal users:', oppIdsWithValidCategory.size);
+    console.log('[GOAL_METRICS] OppIds Fechada e Ganha:', oppIdsFechadaGanha.size);
     console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
-    // 5) Pedidos ligados às OPs elegíveis
-    const etnRealizacao = new Map<string, { realLicencasServicos: number; realRecorrente: number; oppIds: Set<string> }>();
+    // 5) Pedidos linked to eligible won opportunities
+    const etnRealizacao = new Map<string, { realLicenca: number; realServico: number; realRecorrente: number; oppIds: Set<string> }>();
     for (const etn of allEtns) {
-      etnRealizacao.set(etn, { realLicencasServicos: 0, realRecorrente: 0, oppIds: new Set() });
+      etnRealizacao.set(etn, { realLicenca: 0, realServico: 0, realRecorrente: 0, oppIds: new Set() });
     }
 
     let pedidosMatchCount = 0;
@@ -275,7 +266,8 @@ export const useGoalMetricsProcessor = (
       if (!oppId || !oppIdsFechadaGanha.has(oppId)) continue;
 
       pedidosMatchCount++;
-      const licServicos = (pedido.produtoValorLicenca || 0) + (pedido.servicoValorLiquido || 0);
+      const licenca = pedido.produtoValorLicenca || 0;
+      const servico = pedido.servicoValorLiquido || 0;
       const recorrente = pedido.produtoValorManutencao || 0;
 
       const etns = oppIdToEtn.get(oppId);
@@ -285,23 +277,27 @@ export const useGoalMetricsProcessor = (
       for (const etn of etns) {
         const real = etnRealizacao.get(etn);
         if (!real) continue;
-        real.realLicencasServicos += licServicos / divisor;
+        real.realLicenca += licenca / divisor;
+        real.realServico += servico / divisor;
         real.realRecorrente += recorrente / divisor;
         real.oppIds.add(oppId);
       }
     }
 
-    // 6) Métricas por ETN + TOTAL
-    let totalRealLicServicos = 0;
+    // 6) Metrics per ETN + TOTAL
+    let totalRealLicenca = 0;
+    let totalRealServico = 0;
     let totalRealRecorrente = 0;
 
     const etnResults = Array.from(allEtns).map((etn) => {
-      const real = etnRealizacao.get(etn) || { realLicencasServicos: 0, realRecorrente: 0, oppIds: new Set<string>() };
-      totalRealLicServicos += real.realLicencasServicos;
+      const real = etnRealizacao.get(etn) || { realLicenca: 0, realServico: 0, realRecorrente: 0, oppIds: new Set<string>() };
+      totalRealLicenca += real.realLicenca;
+      totalRealServico += real.realServico;
       totalRealRecorrente += real.realRecorrente;
 
+      const realLicencasServicos = real.realLicenca + real.realServico;
       const percentualLicencas = metaTotalLicencasServicos > 0
-        ? (real.realLicencasServicos / metaTotalLicencasServicos) * 100
+        ? (realLicencasServicos / metaTotalLicencasServicos) * 100
         : 0;
       const percentualRecorrente = metaTotalRecorrente > 0
         ? (real.realRecorrente / metaTotalRecorrente) * 100
@@ -313,13 +309,16 @@ export const useGoalMetricsProcessor = (
         etn,
         periodo: selectedPeriod,
         metaLicencasServicos: metaTotalLicencasServicos,
-        realLicencasServicos: real.realLicencasServicos,
+        realLicencasServicos,
+        realLicenca: real.realLicenca,
+        realServico: real.realServico,
         metaRecorrente: metaTotalRecorrente,
         realRecorrente: real.realRecorrente,
         percentualAtingimento,
       } satisfies GoalMetrics;
     });
 
+    const totalRealLicServicos = totalRealLicenca + totalRealServico;
     const percentualLicTotal = metaTotalLicencasServicos > 0
       ? (totalRealLicServicos / metaTotalLicencasServicos) * 100
       : 0;
@@ -333,13 +332,15 @@ export const useGoalMetricsProcessor = (
       periodo: selectedPeriod,
       metaLicencasServicos: metaTotalLicencasServicos,
       realLicencasServicos: totalRealLicServicos,
+      realLicenca: totalRealLicenca,
+      realServico: totalRealServico,
       metaRecorrente: metaTotalRecorrente,
       realRecorrente: totalRealRecorrente,
       percentualAtingimento: percentualLicTotal * 0.5 + percentualRecTotal * 0.5,
     };
 
     console.log(`[GOAL_METRICS] Pedidos matched: ${pedidosMatchCount} of ${pedidos.length}`);
-    console.log(`[GOAL_METRICS] TOTAL: realLicServicos=${totalRealLicServicos} realRecorrente=${totalRealRecorrente} atingimento=${totalMetric.percentualAtingimento.toFixed(1)}%`);
+    console.log(`[GOAL_METRICS] TOTAL: realLicenca=${totalRealLicenca} realServico=${totalRealServico} realRecorrente=${totalRealRecorrente} atingimento=${totalMetric.percentualAtingimento.toFixed(1)}%`);
 
     for (const [goalUserId, goalName] of goalUserNames.entries()) {
       const etnMetric = etnResults.find((m) => m.etn === goalName);
@@ -347,7 +348,8 @@ export const useGoalMetricsProcessor = (
         goalUserId,
         goalName,
         found: Boolean(etnMetric),
-        realLicServicos: etnMetric?.realLicencasServicos ?? 0,
+        realLicenca: etnMetric?.realLicenca ?? 0,
+        realServico: etnMetric?.realServico ?? 0,
         realRecorrente: etnMetric?.realRecorrente ?? 0,
         atingimento: Number((etnMetric?.percentualAtingimento ?? 0).toFixed(2)),
       });

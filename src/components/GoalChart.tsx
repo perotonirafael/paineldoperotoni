@@ -8,8 +8,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
-  ReferenceLine,
 } from 'recharts';
 import { Target } from 'lucide-react';
 import type { GoalMetrics } from '@/types/goals';
@@ -59,8 +57,9 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
   const chartData = topEtns.map(m => ({
     name: m.etn.length > 18 ? m.etn.substring(0, 18) + '...' : m.etn,
     fullName: m.etn,
-    'Licenças+Serviços': m.realLicencasServicos,
-    'Recorrente': m.realRecorrente,
+    'Licença': m.realLicenca,
+    'Serviço': m.realServico,
+    'Manutenção': m.realRecorrente,
     total: m.realLicencasServicos + m.realRecorrente,
   }));
 
@@ -84,6 +83,9 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
               <div>
                 <p className="text-lg font-bold text-blue-900">{formatCurrency(totalMetrica.realLicencasServicos)}</p>
                 <p className="text-xs text-blue-600">Meta: {formatCurrency(totalMetrica.metaLicencasServicos)}</p>
+                <p className="text-[10px] text-blue-500 mt-0.5">
+                  Licença: {formatCurrency(totalMetrica.realLicenca)} · Serviço: {formatCurrency(totalMetrica.realServico)}
+                </p>
               </div>
               <span className={`px-2 py-1 rounded-full text-white text-xs font-bold ${
                 totalMetrica.metaLicencasServicos > 0
@@ -112,7 +114,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
           </div>
 
           <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-200">
-            <p className="text-xs font-medium text-purple-700 mb-1">Recorrente (50%)</p>
+            <p className="text-xs font-medium text-purple-700 mb-1">Manutenção / Recorrente (50%)</p>
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-lg font-bold text-purple-900">{formatCurrency(totalMetrica.realRecorrente)}</p>
@@ -196,8 +198,9 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
                 }}
               />
               <Legend />
-              <Bar dataKey="Licenças+Serviços" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Recorrente" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Licença" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Serviço" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Manutenção" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -211,8 +214,10 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
             <thead className="bg-muted/50 border-b border-border">
               <tr>
                 <th className="px-4 py-2 text-left font-semibold">ETN</th>
-                <th className="px-4 py-2 text-right font-semibold">Licenças+Serviços</th>
-                <th className="px-4 py-2 text-right font-semibold">Recorrente</th>
+                <th className="px-4 py-2 text-right font-semibold">Licença</th>
+                <th className="px-4 py-2 text-right font-semibold">Serviço</th>
+                <th className="px-4 py-2 text-right font-semibold">Lic+Serv</th>
+                <th className="px-4 py-2 text-right font-semibold">Manutenção</th>
                 <th className="px-4 py-2 text-right font-semibold">Total</th>
               </tr>
             </thead>
@@ -220,8 +225,10 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
               {detailPaged.map((m) => (
                 <tr key={`${m.etn}-${m.periodo}`} className="border-b border-border hover:bg-muted/20">
                   <td className="px-4 py-2 font-medium">{m.etn}</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(m.realLicencasServicos)}</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(m.realRecorrente)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(m.realLicenca)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(m.realServico)}</td>
+                  <td className="px-4 py-2 text-right text-blue-700 font-medium">{formatCurrency(m.realLicencasServicos)}</td>
+                  <td className="px-4 py-2 text-right text-purple-700 font-medium">{formatCurrency(m.realRecorrente)}</td>
                   <td className="px-4 py-2 text-right font-bold">
                     {formatCurrency(m.realLicencasServicos + m.realRecorrente)}
                   </td>
