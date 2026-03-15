@@ -80,6 +80,7 @@ export const useGoalMetricsProcessor = (
 
     const actionCols = resolveColumns(actions, 'actions');
     const oppCols = resolveColumns(opportunities, 'opportunities');
+    const useRawDataset = actions.length > 0 && opportunities.length > 0;
 
     console.log('[GOAL_METRICS] Column mapping', {
       actionCols,
@@ -88,24 +89,27 @@ export const useGoalMetricsProcessor = (
       opportunitiesCount: opportunities.length,
       pedidosCount: pedidos.length,
       processedDataCount: processedData.length,
+      useRawDataset,
     });
 
     // 1) Mapear user ERP ID -> ETN
     const userIdToName = new Map<string, string>();
 
-    for (const action of actions as Record<string, any>[]) {
-      const userId = getField(action, actionCols.userId);
-      const userName = getField(action, actionCols.userName);
-      if (userId && userId !== '0' && userName) {
-        userIdToName.set(userId, userName);
+    if (useRawDataset) {
+      for (const action of actions as Record<string, any>[]) {
+        const userId = getField(action, actionCols.userId);
+        const userName = getField(action, actionCols.userName);
+        if (userId && userId !== '0' && userName) {
+          userIdToName.set(userId, userName);
+        }
       }
-    }
 
-    for (const opp of opportunities as Record<string, any>[]) {
-      const userId = getField(opp, oppCols.userId);
-      const userName = getField(opp, oppCols.responsible);
-      if (userId && userId !== '0' && userName && !userIdToName.has(userId)) {
-        userIdToName.set(userId, userName);
+      for (const opp of opportunities as Record<string, any>[]) {
+        const userId = getField(opp, oppCols.userId);
+        const userName = getField(opp, oppCols.responsible);
+        if (userId && userId !== '0' && userName && !userIdToName.has(userId)) {
+          userIdToName.set(userId, userName);
+        }
       }
     }
 
