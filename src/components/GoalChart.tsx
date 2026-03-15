@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -19,6 +19,8 @@ interface GoalChartProps {
   title?: string;
 }
 
+const DETAIL_PAGE_SIZE = 15;
+
 const formatCurrency = (v: number) =>
   `R$ ${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
 
@@ -30,7 +32,8 @@ const getColor = (percentage: number): string => {
 };
 
 export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
-  // Estado vazio
+  const [detailPage, setDetailPage] = useState(0);
+
   if (!metricas || metricas.length === 0) {
     return (
       <div className="w-full">
@@ -46,11 +49,9 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
     );
   }
 
-  // Separar TOTAL e ETNs individuais
   const totalMetrica = metricas.find(m => m.etn === 'TOTAL');
   const etnMetricas = metricas.filter(m => m.etn !== 'TOTAL');
 
-  // Dados para gráfico de barras por ETN (top 15 por realização)
   const topEtns = [...etnMetricas]
     .sort((a, b) => (b.realLicencasServicos + b.realRecorrente) - (a.realLicencasServicos + a.realRecorrente))
     .slice(0, 15);
@@ -63,6 +64,13 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
     total: m.realLicencasServicos + m.realRecorrente,
   }));
 
+  // Pagination for detail table
+  const detailData = etnMetricas
+    .filter(m => m.realLicencasServicos > 0 || m.realRecorrente > 0)
+    .sort((a, b) => (b.realLicencasServicos + b.realRecorrente) - (a.realLicencasServicos + a.realRecorrente));
+  const detailTotalPages = Math.ceil(detailData.length / DETAIL_PAGE_SIZE);
+  const detailPaged = detailData.slice(detailPage * DETAIL_PAGE_SIZE, (detailPage + 1) * DETAIL_PAGE_SIZE);
+
   return (
     <div className="w-full space-y-6">
       {title && <h3 className="text-lg font-bold text-foreground">{title}</h3>}
@@ -70,7 +78,6 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
       {/* Resumo TOTAL */}
       {totalMetrica && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Card Licenças + Serviços */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
             <p className="text-xs font-medium text-blue-700 mb-1">Licenças + Serviços (50%)</p>
             <div className="flex items-end justify-between">
@@ -104,7 +111,6 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
             )}
           </div>
 
-          {/* Card Recorrente */}
           <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-200">
             <p className="text-xs font-medium text-purple-700 mb-1">Recorrente (50%)</p>
             <div className="flex items-end justify-between">
@@ -138,7 +144,6 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
             )}
           </div>
 
-          {/* Card Atingimento Total */}
           <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200">
             <p className="text-xs font-medium text-emerald-700 mb-1">Atingimento Ponderado</p>
             <div className="flex items-end justify-between">
@@ -174,17 +179,8 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="name"
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                tick={{ fontSize: 11, fill: '#6b7280' }}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#6b7280' }}
-                tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`}
-              />
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11, fill: '#6b7280' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{
                   background: 'rgba(255,255,255,0.97)',
@@ -207,8 +203,8 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
         </div>
       )}
 
-      {/* Tabela de detalhes - apenas ETNs com realização */}
-      {etnMetricas.filter(m => m.realLicencasServicos > 0 || m.realRecorrente > 0).length > 0 && (
+      {/* Tabela de detalhes com paginação de 15 registros */}
+      {detailData.length > 0 && (
         <div className="overflow-x-auto">
           <h4 className="text-sm font-semibold text-foreground mb-3">Detalhamento por ETN</h4>
           <table className="w-full text-sm">
@@ -221,21 +217,41 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
               </tr>
             </thead>
             <tbody>
-              {etnMetricas
-                .filter(m => m.realLicencasServicos > 0 || m.realRecorrente > 0)
-                .sort((a, b) => (b.realLicencasServicos + b.realRecorrente) - (a.realLicencasServicos + a.realRecorrente))
-                .map((m) => (
-                  <tr key={`${m.etn}-${m.periodo}`} className="border-b border-border hover:bg-muted/20">
-                    <td className="px-4 py-2 font-medium">{m.etn}</td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(m.realLicencasServicos)}</td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(m.realRecorrente)}</td>
-                    <td className="px-4 py-2 text-right font-bold">
-                      {formatCurrency(m.realLicencasServicos + m.realRecorrente)}
-                    </td>
-                  </tr>
-                ))}
+              {detailPaged.map((m) => (
+                <tr key={`${m.etn}-${m.periodo}`} className="border-b border-border hover:bg-muted/20">
+                  <td className="px-4 py-2 font-medium">{m.etn}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(m.realLicencasServicos)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(m.realRecorrente)}</td>
+                  <td className="px-4 py-2 text-right font-bold">
+                    {formatCurrency(m.realLicencasServicos + m.realRecorrente)}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          {detailTotalPages > 1 && (
+            <div className="p-3 border-t border-border flex items-center justify-between bg-muted/30">
+              <p className="text-xs text-muted-foreground">
+                Página {detailPage + 1} de {detailTotalPages} · {detailData.length} registros
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setDetailPage(p => Math.max(0, p - 1))}
+                  disabled={detailPage === 0}
+                  className="px-3 py-1 text-xs rounded-lg bg-white border border-border text-foreground hover:bg-muted/50 disabled:opacity-30 transition-colors font-medium"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setDetailPage(p => Math.min(detailTotalPages - 1, p + 1))}
+                  disabled={detailPage >= detailTotalPages - 1}
+                  className="px-3 py-1 text-xs rounded-lg bg-white border border-border text-foreground hover:bg-muted/50 disabled:opacity-30 transition-colors font-medium"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

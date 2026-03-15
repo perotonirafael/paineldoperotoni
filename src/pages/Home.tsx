@@ -149,7 +149,6 @@ export default function Home() {
   const result = workerResult || normalResult;
 
   const processedData = result?.records ?? [];
-  const goalMetricas = useGoalMetricsProcessor(goals, pedidos, processedData, selectedPeriod, actions, opportunities);
   const missingAgendas = result?.missingAgendas ?? [];
   const kpis = result?.kpis ?? null;
   const motivosPerdaBrutos = result?.motivosPerda ?? [];
@@ -189,6 +188,8 @@ export default function Home() {
       return true;
     });
   }, [processedData, selYears, selMonths, selReps, selResp, selETN, selStages, selProbs, selAgenda, selAccounts, selTypes, selSubtipos]);
+
+  const goalMetricas = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
 
   // Ajuste: Taxa de Conversão por ETN (somente Demonstração Presencial/Remota)
   // Quando actions está disponível (upload direto ou demo), calcular localmente.
@@ -1000,6 +1001,7 @@ export default function Home() {
                 <MultiSelectDropdown label="Conta" options={filterOptions.contas} selected={selAccounts} onChange={setSelAccounts} />
                 <MultiSelectDropdown label="Tipo Op." options={filterOptions.tipos} selected={selTypes} onChange={setSelTypes} />
                 <MultiSelectDropdown label="Produto" options={filterOptions.subtipos || []} selected={selSubtipos} onChange={setSelSubtipos} />
+                <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
               </div>
             </div>
 
@@ -1047,7 +1049,6 @@ export default function Home() {
                       </label>
                     </div>
                   )}
-                  <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
                 </div>
               </div>
               <GoalChart metricas={goalMetricas} title="" />
