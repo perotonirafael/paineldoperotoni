@@ -171,39 +171,72 @@ export const useGoalMetricsProcessor = (
     const oppIdsWithValidCategory = new Set<string>();
     const oppIdToEtn = new Map<string, Set<string>>();
 
-    for (const action of actions as Record<string, any>[]) {
-      const categoria = getField(action, actionCols.category);
-      if (!isEligibleCommitmentCategory(categoria)) continue;
+    if (useRawDataset) {
+      for (const action of actions as Record<string, any>[]) {
+        const categoria = getField(action, actionCols.category);
+        if (!isEligibleCommitmentCategory(categoria)) continue;
 
-      const oppId = getField(action, actionCols.oppId);
-      if (!oppId) continue;
-      oppIdsWithValidCategory.add(oppId);
+        const oppId = getField(action, actionCols.oppId);
+        if (!oppId) continue;
+        oppIdsWithValidCategory.add(oppId);
 
-      const etn = getField(action, actionCols.userName);
-      if (etn) {
+        const etn = getField(action, actionCols.userName);
+        if (etn) {
+          if (!oppIdToEtn.has(oppId)) oppIdToEtn.set(oppId, new Set());
+          oppIdToEtn.get(oppId)!.add(etn);
+        }
+      }
+
+      // fallback: usar responsável da oportunidade para OPs elegíveis sem ETN
+      for (const opp of opportunities as Record<string, any>[]) {
+        const oppId = getField(opp, oppCols.oppId);
+        const responsible = getField(opp, oppCols.responsible);
+        if (!oppId || !responsible || !oppIdsWithValidCategory.has(oppId)) continue;
         if (!oppIdToEtn.has(oppId)) oppIdToEtn.set(oppId, new Set());
-        oppIdToEtn.get(oppId)!.add(etn);
+        oppIdToEtn.get(oppId)!.add(responsible);
+      }
+    } else {
+      for (const record of processedData) {
+        if (!record.oppId) continue;
+        if (!isEligibleCommitmentCategory(record.categoriaCompromisso || '')) continue;
+
+        oppIdsWithValidCategory.add(record.oppId);
+        const etn = record.etn && record.etn !== 'Sem Agenda' ? record.etn : record.responsavel;
+        if (!etn) continue;
+        if (!oppIdToEtn.has(record.oppId)) oppIdToEtn.set(record.oppId, new Set());
+        oppIdToEtn.get(record.oppId)!.add(etn);
       }
     }
 
-    // fallback: usar responsável da oportunidade para OPs elegíveis sem ETN
-    for (const opp of opportunities as Record<string, any>[]) {
-      const oppId = getField(opp, oppCols.oppId);
-      const responsible = getField(opp, oppCols.responsible);
-      if (!oppId || !responsible || !oppIdsWithValidCategory.has(oppId)) continue;
-      if (!oppIdToEtn.has(oppId)) oppIdToEtn.set(oppId, new Set());
-      oppIdToEtn.get(oppId)!.add(responsible);
+    if (oppIdsWithValidCategory.size === 0) {
+      for (const record of processedData) {
+        if (!record.oppId) continue;
+        oppIdsWithValidCategory.add(record.oppId);
+        if (record.etn && record.etn !== 'Sem Agenda') {
+          if (!oppIdToEtn.has(record.oppId)) oppIdToEtn.set(record.oppId, new Set());
+          oppIdToEtn.get(record.oppId)!.add(record.etn);
+        }
+      }
     }
 
     // 4) Oportunidades Fechada e Ganha elegíveis
     const oppIdsFechadaGanha = new Set<string>();
 
-    for (const opp of opportunities as Record<string, any>[]) {
-      const oppId = getField(opp, oppCols.oppId);
-      const etapa = getField(opp, oppCols.stage);
-      const isWon = etapa === 'Fechada e Ganha' || etapa === 'Fechada e Ganha TR';
-      if (isWon && oppIdsWithValidCategory.has(oppId)) {
-        oppIdsFechadaGanha.add(oppId);
+    if (useRawDataset) {
+      for (const opp of opportunities as Record<string, any>[]) {
+        const oppId = getField(opp, oppCols.oppId);
+        const etapa = getField(opp, oppCols.stage);
+        const isWon = etapa === 'Fechada e Ganha' || etapa === 'Fechada e Ganha TR';
+        if (isWon && oppIdsWithValidCategory.has(oppId)) {
+          oppIdsFechadaGanha.add(oppId);
+        }
+      }
+    } else {
+      for (const record of processedData) {
+        const isWon = record.etapa === 'Fechada e Ganha' || record.etapa === 'Fechada e Ganha TR';
+        if (isWon && oppIdsWithValidCategory.has(record.oppId)) {
+          oppIdsFechadaGanha.add(record.oppId);
+        }
       }
     }
 
