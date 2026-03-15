@@ -721,7 +721,10 @@ self.onmessage = (event: MessageEvent) => {
 
   if (type === 'process') {
     try {
-      const result = processDataWithRaw(event.data.opportunities, event.data.actions);
+      const opportunities = event.data.opportunities || [];
+      const actions = event.data.actions || [];
+      const includeRawData = opportunities.length <= RAW_TRANSFER_LIMIT && actions.length <= RAW_TRANSFER_LIMIT;
+      const result = buildProcessResult(opportunities, actions, includeRawData);
       self.postMessage({ type: 'result', ...result });
     } catch (error) {
       self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' });
@@ -737,7 +740,7 @@ self.onmessage = (event: MessageEvent) => {
 
       if (oppBuffer) {
         self.postMessage({ type: 'progress', stage: 'parsing', progress: 15, message: 'Parseando oportunidades...' });
-        
+
         if (oppFileName?.toLowerCase().endsWith('.csv')) {
           const oppText = readFileBuffer(oppBuffer);
           const firstLine = oppText.split(/\r?\n/)[0] || '';
@@ -756,7 +759,7 @@ self.onmessage = (event: MessageEvent) => {
       if (actBuffer) {
         self.postMessage({ type: 'progress', stage: 'parsing', progress: 40, message: 'Lendo arquivo de compromissos...' });
         self.postMessage({ type: 'progress', stage: 'parsing', progress: 50, message: 'Parseando compromissos...' });
-        
+
         if (actFileName?.toLowerCase().endsWith('.csv')) {
           const actText = readFileBuffer(actBuffer);
           const firstLine = actText.split(/\r?\n/)[0] || '';
@@ -779,9 +782,17 @@ self.onmessage = (event: MessageEvent) => {
 
       self.postMessage({ type: 'progress', stage: 'processing', progress: 75, message: 'Processando dados...' });
 
-      const result = processDataWithRaw(opportunities, actions);
+      const includeRawData = opportunities.length <= RAW_TRANSFER_LIMIT && actions.length <= RAW_TRANSFER_LIMIT;
+      const result = buildProcessResult(opportunities, actions, includeRawData);
 
-      self.postMessage({ type: 'progress', stage: 'done', progress: 95, message: 'Finalizando...' });
+      self.postMessage({
+        type: 'progress',
+        stage: 'done',
+        progress: 95,
+        message: includeRawData
+          ? 'Finalizando...'
+          : 'Finalizando (modo otimizado para grande volume)...',
+      });
       self.postMessage({ type: 'result', ...result });
 
     } catch (error) {

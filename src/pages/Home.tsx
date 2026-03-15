@@ -532,16 +532,14 @@ export default function Home() {
     setLightOpportunities([]);
     setLightActions([]);
 
-    try {
-      await persistFilesTemporarily({
-        opportunities: oppFile,
-        commitments: actFile,
-        goals: goalFile,
-        orders: pedidoFile,
-      });
-    } catch (persistErr) {
+    const persistPromise = persistFilesTemporarily({
+      opportunities: oppFile,
+      commitments: actFile,
+      goals: goalFile,
+      orders: pedidoFile,
+    }).catch((persistErr) => {
       console.warn('[UPLOAD_DB] Falha ao persistir upload temporário:', persistErr);
-    }
+    });
 
     try {
       const workerRes = await processFilesWithWorker(oppFile, actFile);
@@ -589,6 +587,8 @@ export default function Home() {
     } catch (err) {
       console.error('Erro no Web Worker:', err);
       setError(err instanceof Error ? err.message : 'Erro ao processar arquivos');
+    } finally {
+      await persistPromise;
     }
   }, [oppFile, actFile, goalFile, pedidoFile, processFilesWithWorker, parseGoalsFile, parsePedidosFile, persistFilesTemporarily]);
 
