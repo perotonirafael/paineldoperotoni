@@ -14,7 +14,7 @@ function norm(s: string): string {
 }
 
 const SIMULATED_GOAL_USERS: Record<string, string> = {
-  '11124': 'Rafael Perotoni',
+  '11124': 'Rafael Perottone',
 };
 
 function resolveColumns(rows: Record<string, any>[], type: 'actions' | 'opportunities') {
