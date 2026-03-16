@@ -86,7 +86,7 @@ export const useGoalMetricsProcessor = (
     console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goalYears: Array.from(goalYears), goals: goals.length, pedidos: pedidos.length });
     if (!months.length || !goals.length) {
       console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', goals.length);
-      return [];
+      return emptyResult;
     }
 
     const actionCols = resolveColumns(actions, 'actions');
