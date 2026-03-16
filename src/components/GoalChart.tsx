@@ -174,15 +174,15 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
         </div>
       )}
 
-      {/* Gráfico de barras por ETN */}
+      {/* Gráfico de barras por ETN - layout horizontal quando muitos nomes */}
       {chartData.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-foreground mb-3">Realização por ETN (Top 15)</h4>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 80 }}>
+          <ResponsiveContainer width="100%" height={Math.max(350, chartData.length * 36 + 60)}>
+            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11, fill: '#6b7280' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+              <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: '#6b7280' }} />
               <Tooltip
                 contentStyle={{
                   background: 'rgba(255,255,255,0.97)',
@@ -200,7 +200,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
               <Legend />
               <Bar dataKey="Licença" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
               <Bar dataKey="Serviço" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Manutenção" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Manutenção" stackId="a" fill="#a855f7" radius={[0, 0, 4, 4]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
