@@ -715,7 +715,8 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-      {/* Header */}
+      {/* Header - hidden when inside AppLayout */}
+      {!hideHeader && (
       <div className="sticky top-0 z-40 bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-lg">
         <div className="container py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -729,6 +730,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           </div>
         </div>
       </div>
+      )}
 
       <div className="container py-8">
         {/* Upload Section */}
