@@ -248,10 +248,24 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // 6) Calculate realized per month
-    const monthlyRealLicenca: number[] = new Array(12).fill(0);
-    const monthlyRealServico: number[] = new Array(12).fill(0);
-    const monthlyRealRecorrente: number[] = new Array(12).fill(0);
+    // Goal composition for export
+    const goalComposition: GoalCompositionExport[] = filteredGoals.map(g => ({
+      produto: g.produto,
+      rubrica: g.rubrica,
+      janeiro: g.janeiro,
+      fevereiro: g.fevereiro,
+      marco: g.marco,
+      abril: g.abril,
+      maio: g.maio,
+      junho: g.junho,
+      julho: g.julho,
+      agosto: g.agosto,
+      setembro: g.setembro,
+      outubro: g.outubro,
+      novembro: g.novembro,
+      dezembro: g.dezembro,
+      totalAno: g.totalAno,
+    }));
 
     let pedidosMatched = 0;
     for (const oppId of oppIdsFechadaGanha) {
