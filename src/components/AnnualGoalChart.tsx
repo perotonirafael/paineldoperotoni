@@ -130,7 +130,7 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year, al
     }
 
     XLSX.writeFile(wb, `Meta_Anual_${year || new Date().getFullYear()}.xlsx`);
-  }, [data, year]);
+  }, [data, year, allPedidos]);
 
   if (!data) {
     return (

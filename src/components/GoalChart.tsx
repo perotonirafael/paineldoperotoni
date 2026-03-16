@@ -153,7 +153,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
     }
 
     XLSX.writeFile(wb, `Atingimento_Metas_${title || 'export'}.xlsx`);
-  }, [metricas, title, goalComposition, matchedPedidos]);
+  }, [metricas, title, goalComposition, matchedPedidos, allPedidos, selectedPeriod]);
 
   if (!metricas || metricas.length === 0) {
     return (
