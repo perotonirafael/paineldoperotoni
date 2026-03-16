@@ -9,10 +9,12 @@ import { useFileProcessor } from '@/hooks/useFileProcessor';
 import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
 import { useGoalProcessor } from '@/hooks/useGoalProcessor';
 import { useGoalMetricsProcessor } from '@/hooks/useGoalMetricsProcessor';
+import { useAnnualGoalMetrics } from '@/hooks/useAnnualGoalMetrics';
 import { useTemporaryUploadStorage } from '@/hooks/useTemporaryUploadStorage';
 import type { GoalRecord, PedidoRecord } from '@/types/goals';
 import { PeriodSelector } from '@/components/PeriodSelector';
 import { GoalChart } from '@/components/GoalChart';
+import { AnnualGoalChart } from '@/components/AnnualGoalChart';
 import { MultiSelectDropdown } from '@/components/MultiSelectDropdown';
 import { KPICard } from '@/components/KPICard';
 import { AnalyticsTable } from '@/components/AnalyticsTable';
@@ -190,6 +192,8 @@ export default function Home() {
   }, [processedData, selYears, selMonths, selReps, selResp, selETN, selStages, selProbs, selAgenda, selAccounts, selTypes, selSubtipos]);
 
   const goalMetricas = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
+  const selectedGoalYear = selYears.length === 1 ? selYears[0] : undefined;
+  const annualGoalData = useAnnualGoalMetrics(goals, pedidos, actions, opportunities, selectedGoalYear);
 
   // Ajuste: Taxa de Conversão por ETN (somente Demonstração Presencial/Remota)
   // Quando actions está disponível (upload direto ou demo), calcular localmente.
@@ -1016,21 +1020,8 @@ export default function Home() {
               </div>
             )}
 
-            {/* Charts */}
-            <ChartsSection
-              data={filteredData}
-              funnelData={funnelData}
-              motivosPerda={motivosPerdaFiltered}
-              forecastFunnel={forecastFunnel}
-              etnTop10={etnTop10Filtered}
-              etnConversionTop10={etnConversionTop10}
-              etnRecursosAgendas={etnRecursosAgendas}
-              onChartClick={handleChartClick}
-              onETNClick={setSelectedETNDetail}
-            />
-
-            {/* Gráfico de Metas - sempre visível */}
-            <div className="mt-10 bg-white rounded-xl p-6 border border-border shadow-sm">
+            {/* Gráfico de Metas - PRIMEIRO após filtros */}
+            <div className="bg-white rounded-xl p-6 border border-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                   <Target size={20} className="text-purple-600" />
@@ -1053,6 +1044,32 @@ export default function Home() {
               </div>
               <GoalChart metricas={goalMetricas} title="" />
             </div>
+
+            {/* Evolução Anual da Meta - não influenciado por filtros de período */}
+            <div className="bg-white rounded-xl p-6 border border-border shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <TrendingUp size={20} className="text-emerald-600" />
+                  Evolução Anual da Meta {selectedGoalYear ? `- ${selectedGoalYear}` : ''}
+                </h3>
+                <p className="text-xs text-muted-foreground">Acumulado mês a mês · Apenas filtro de ano</p>
+              </div>
+              <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} />
+            </div>
+
+            {/* Charts */}
+            <ChartsSection
+              data={filteredData}
+              funnelData={funnelData}
+              motivosPerda={motivosPerdaFiltered}
+              forecastFunnel={forecastFunnel}
+              etnTop10={etnTop10Filtered}
+              etnConversionTop10={etnConversionTop10}
+              etnRecursosAgendas={etnRecursosAgendas}
+              onChartClick={handleChartClick}
+              onETNClick={setSelectedETNDetail}
+            />
+
 
             {/* Table */}
             <div className="mt-6">
