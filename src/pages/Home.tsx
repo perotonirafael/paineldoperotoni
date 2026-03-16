@@ -193,7 +193,7 @@ export default function Home() {
 
   const goalMetricas = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
   const selectedGoalYear = selYears.length === 1 ? selYears[0] : undefined;
-  const annualGoalData = useAnnualGoalMetrics(goals, pedidos, actions, opportunities, selectedGoalYear);
+  const annualGoalData = useAnnualGoalMetrics(goals, pedidos, actions, opportunities, processedData, selectedGoalYear);
 
   // Ajuste: Taxa de Conversão por ETN (somente Demonstração Presencial/Remota)
   // Quando actions está disponível (upload direto ou demo), calcular localmente.

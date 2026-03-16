@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
-import type { Action, Opportunity } from './useDataProcessor';
+import type { Action, Opportunity, ProcessedRecord } from './useDataProcessor';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 
@@ -72,12 +72,14 @@ export interface AnnualGoalResult {
 
 /**
  * Same cross-referencing as useGoalMetricsProcessor but accumulates ALL 12 months.
+ * Accepts processedData as fallback when raw actions/opportunities are unavailable (e.g. cache).
  */
 export const useAnnualGoalMetrics = (
   goals: GoalRecord[],
   pedidos: PedidoRecord[],
   actions: Action[],
   opportunities: Opportunity[],
+  processedData: ProcessedRecord[],
   selectedYear?: string,
 ): AnnualGoalResult | null => {
   return useMemo(() => {
@@ -90,11 +92,11 @@ export const useAnnualGoalMetrics = (
     const targetYear = selectedYear || (goalYears.size > 0 ? Array.from(goalYears)[0] : '');
     if (!targetYear) { console.log('[ANNUAL_GOAL] No target year'); return null; }
 
-    console.log('[ANNUAL_GOAL] start', { targetYear, goals: goals.length, pedidos: pedidos.length, actions: actions.length, opportunities: opportunities.length });
-
     const actionCols = resolveColumns(actions, 'actions');
     const oppCols = resolveColumns(opportunities, 'opportunities');
     const useRawDataset = actions.length > 0 && opportunities.length > 0;
+
+    console.log('[ANNUAL_GOAL] start', { targetYear, goals: goals.length, pedidos: pedidos.length, actions: actions.length, opportunities: opportunities.length, processedData: processedData.length, useRawDataset });
 
     // 0) Goal user IDs
     const goalUserIds = new Set(goals.map(g => g.idUsuario));
@@ -115,15 +117,6 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    let hasResolvedUser = false;
-    for (const uid of goalUserIds) {
-      if (userIdToName.has(uid)) { hasResolvedUser = true; break; }
-    }
-    if (useRawDataset && !hasResolvedUser) {
-      console.log('[ANNUAL_GOAL] No goal users resolved from raw data');
-      return null;
-    }
-
     // 2) Eligible opp IDs from goal users
     const oppIdsWithValidCategory = new Set<string>();
     if (useRawDataset) {
@@ -135,10 +128,19 @@ export const useAnnualGoalMetrics = (
         const oppId = getField(action, actionCols.oppId);
         if (oppId) oppIdsWithValidCategory.add(oppId);
       }
+    } else {
+      // Fallback: use processedData when raw datasets unavailable (cache mode)
+      for (const record of processedData) {
+        if (!record.oppId) continue;
+        if (!isEligibleCommitmentCategory(record.categoriaCompromisso || '')) continue;
+        const actionUserId = String(record.actionUserId || '').trim();
+        if (!actionUserId || !goalUserIds.has(actionUserId)) continue;
+        oppIdsWithValidCategory.add(record.oppId);
+      }
     }
 
     console.log('[ANNUAL_GOAL] Eligible opp IDs from compromissos:', oppIdsWithValidCategory.size);
-    if (oppIdsWithValidCategory.size === 0 && useRawDataset) {
+    if (oppIdsWithValidCategory.size === 0) {
       console.log('[ANNUAL_GOAL] No eligible compromissos. Returning null.');
       return null;
     }
@@ -158,6 +160,14 @@ export const useAnnualGoalMetrics = (
             if (!oppIdToPedidoNums.has(oppId)) oppIdToPedidoNums.set(oppId, new Set());
             oppIdToPedidoNums.get(oppId)!.add(pedidoNum);
           }
+        }
+      }
+    } else {
+      // Fallback: use processedData
+      for (const record of processedData) {
+        const isWon = record.etapa === 'Fechada e Ganha' || record.etapa === 'Fechada e Ganha TR';
+        if (isWon && oppIdsWithValidCategory.has(record.oppId)) {
+          oppIdsFechadaGanha.add(record.oppId);
         }
       }
     }
@@ -291,5 +301,5 @@ export const useAnnualGoalMetrics = (
       percentualAtingimento: pctLS * 0.5 + pctR * 0.5,
       monthlyData,
     };
-  }, [goals, pedidos, actions, opportunities, selectedYear]);
+  }, [goals, pedidos, actions, opportunities, processedData, selectedYear]);
 };
