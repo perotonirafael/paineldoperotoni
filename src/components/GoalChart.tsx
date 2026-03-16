@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   BarChart,
   Bar,
@@ -9,7 +9,9 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Target } from 'lucide-react';
+import { Target, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Button } from '@/components/ui/button';
 import type { GoalMetrics } from '@/types/goals';
 
 interface GoalChartProps {
