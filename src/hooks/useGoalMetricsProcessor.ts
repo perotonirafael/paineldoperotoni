@@ -230,7 +230,7 @@ export const useGoalMetricsProcessor = (
     // NO fallback to all records - if no eligible compromissos from goal users, return empty
     if (oppIdsWithValidCategory.size === 0) {
       console.log('[GOAL_METRICS] No eligible compromissos from goal users found. Returning empty metrics.');
-      return [];
+      return emptyResult;
     }
 
     // 4) From Oportunidades, get "Pedido" number for eligible won opportunities
