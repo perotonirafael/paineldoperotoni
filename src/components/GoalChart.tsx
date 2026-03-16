@@ -82,22 +82,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
     if (!metricas || metricas.length === 0) return;
     const wb = XLSX.utils.book_new();
 
-    // Aba 1: Composição das Metas
-    if (goalComposition.length > 0) {
-      const metas = goalComposition.map(g => ({
-        Produto: g.produto,
-        Rubrica: g.rubrica,
-        Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
-        Abril: g.abril, Maio: g.maio, Junho: g.junho,
-        Julho: g.julho, Agosto: g.agosto, Setembro: g.setembro,
-        Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro,
-        'Total Ano': g.totalAno,
-      }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
-    }
-
-    // Aba 2: Pedidos Identificados (detalhado por linha de pedido)
-    // Usar matchedPedidos do cruzamento; fallback: filtrar allPedidos pelo período
+    // Aba 1 (PRIMEIRA): Pedidos Identificados - detalhado por linha
     let pedidoRows: ReturnType<typeof pedidoToExportRow>[] = [];
     if (matchedPedidos.length > 0) {
       pedidoRows = matchedPedidos.map(p => ({
@@ -132,7 +117,21 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
       pedidoRows = filtered.map(pedidoToExportRow);
     }
     if (pedidoRows.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Identificados');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Detalhados');
+    }
+
+    // Aba 2: Composição das Metas
+    if (goalComposition.length > 0) {
+      const metas = goalComposition.map(g => ({
+        Produto: g.produto,
+        Rubrica: g.rubrica,
+        Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
+        Abril: g.abril, Maio: g.maio, Junho: g.junho,
+        Julho: g.julho, Agosto: g.agosto, Setembro: g.setembro,
+        Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro,
+        'Total Ano': g.totalAno,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
     }
 
     // Aba 3: Detalhamento por ETN
@@ -152,7 +151,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalhe), 'Detalhamento ETN');
     }
 
-    XLSX.writeFile(wb, `Atingimento_Metas_${title || 'export'}.xlsx`);
+    XLSX.writeFile(wb, `Atingimento_Metas_${selectedPeriod || title || 'export'}.xlsx`);
   }, [metricas, title, goalComposition, matchedPedidos, allPedidos, selectedPeriod]);
 
   if (!metricas || metricas.length === 0) {

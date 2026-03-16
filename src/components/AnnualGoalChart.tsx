@@ -66,21 +66,7 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year, al
     if (!data) return;
     const wb = XLSX.utils.book_new();
 
-    // Aba 1: Composição das Metas
-    if (data.goalComposition?.length) {
-      const metas = data.goalComposition.map(g => ({
-        Produto: g.produto,
-        Rubrica: g.rubrica,
-        Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
-        Abril: g.abril, Maio: g.maio, Junho: g.junho,
-        Julho: g.julho, Agosto: g.agosto, Setembro: g.setembro,
-        Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro,
-        'Total Ano': g.totalAno,
-      }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
-    }
-
-    // Aba 2: Pedidos Identificados (detalhado por linha de pedido)
+    // Aba 1 (PRIMEIRA): Pedidos Detalhados - linha por linha
     let pedidoRows: ReturnType<typeof pedidoToExportRow>[] = [];
     if (data.matchedPedidos?.length) {
       pedidoRows = data.matchedPedidos.map(p => ({
@@ -113,7 +99,21 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year, al
       pedidoRows = allPedidos.filter(p => p.anoFechamento === year).map(pedidoToExportRow);
     }
     if (pedidoRows.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Identificados');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Detalhados');
+    }
+
+    // Aba 2: Composição das Metas
+    if (data.goalComposition?.length) {
+      const metas = data.goalComposition.map(g => ({
+        Produto: g.produto,
+        Rubrica: g.rubrica,
+        Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
+        Abril: g.abril, Maio: g.maio, Junho: g.junho,
+        Julho: g.julho, Agosto: g.agosto, Setembro: g.setembro,
+        Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro,
+        'Total Ano': g.totalAno,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
     }
 
     // Aba 3: Evolução Mensal
