@@ -449,8 +449,6 @@ export const useGoalMetricsProcessor = (
       });
     }
 
-    return [totalMetric, ...etnResults];
+    return { metricas: [totalMetric, ...etnResults], goalComposition, matchedPedidos: allMatchedPedidos };
   }, [goals, pedidos, processedData, selectedPeriod, actions, opportunities]);
-
-  return metricas;
 };
