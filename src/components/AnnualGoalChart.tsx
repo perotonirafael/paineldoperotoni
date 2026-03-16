@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, Line, ComposedChart,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import type { AnnualGoalResult } from '@/hooks/useAnnualGoalMetrics';
@@ -48,8 +48,9 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
 
   return (
     <div className="w-full space-y-6">
-      {/* KPI Cards - same layout as GoalChart */}
+      {/* KPI Cards - same as GoalChart */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Licenças + Serviços */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
           <p className="text-xs font-medium text-blue-700 mb-1">Licenças + Serviços (50%)</p>
           <div className="flex items-end justify-between">
@@ -68,15 +69,13 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
             <div className="mt-2 h-2 bg-blue-200 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(pctLS, 100)}%`,
-                  backgroundColor: getColor(pctLS),
-                }}
+                style={{ width: `${Math.min(pctLS, 100)}%`, backgroundColor: getColor(pctLS) }}
               />
             </div>
           )}
         </div>
 
+        {/* Manutenção / Recorrente */}
         <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-200">
           <p className="text-xs font-medium text-purple-700 mb-1">Manutenção / Recorrente (50%)</p>
           <div className="flex items-end justify-between">
@@ -92,17 +91,15 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
             <div className="mt-2 h-2 bg-purple-200 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(pctR, 100)}%`,
-                  backgroundColor: getColor(pctR),
-                }}
+                style={{ width: `${Math.min(pctR, 100)}%`, backgroundColor: getColor(pctR) }}
               />
             </div>
           )}
         </div>
 
+        {/* Atingimento Ponderado */}
         <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200">
-          <p className="text-xs font-medium text-emerald-700 mb-1">Atingimento Ponderado</p>
+          <p className="text-xs font-medium text-emerald-700 mb-1">Atingimento Ponderado Anual</p>
           <div className="flex items-end justify-between">
             <p className="text-3xl font-bold" style={{ color: getColor(data.percentualAtingimento) }}>
               {data.percentualAtingimento.toFixed(1)}%
@@ -114,23 +111,30 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
           <div className="mt-2 h-2 bg-emerald-200 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.min(data.percentualAtingimento, 100)}%`,
-                backgroundColor: getColor(data.percentualAtingimento),
-              }}
+              style={{ width: `${Math.min(data.percentualAtingimento, 100)}%`, backgroundColor: getColor(data.percentualAtingimento) }}
             />
           </div>
         </div>
       </div>
 
-      {/* Cumulative monthly chart */}
+      {/* Cumulative monthly chart - atingimento % evolution */}
       <div>
-        <h4 className="text-sm font-semibold text-foreground mb-3">Evolução Acumulada Mensal</h4>
+        <h4 className="text-sm font-semibold text-foreground mb-3">Evolução do Atingimento Acumulado Mensal</h4>
         <ResponsiveContainer width="100%" height={320}>
           <ComposedChart data={data.monthlyData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6b7280' }} />
-            <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={formatK} />
+            <YAxis
+              yAxisId="currency"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              tickFormatter={formatK}
+            />
+            <YAxis
+              yAxisId="pct"
+              orientation="right"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+            />
             <Tooltip
               contentStyle={{
                 background: 'rgba(255,255,255,0.97)',
@@ -139,13 +143,17 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
                 fontSize: '12px',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               }}
-              formatter={(value: number, name: string) => [formatCurrency(value), name]}
+              formatter={(value: number, name: string) => {
+                if (name === 'Atingimento %') return [`${value.toFixed(1)}%`, name];
+                return [formatCurrency(value), name];
+              }}
             />
             <Legend />
-            <Bar dataKey="realLicServAcum" name="Real Lic+Serv" fill="#3b82f6" opacity={0.7} radius={[2, 2, 0, 0]} />
-            <Bar dataKey="realRecorrenteAcum" name="Real Recorrente" fill="#a855f7" opacity={0.7} radius={[2, 2, 0, 0]} />
-            <Line type="monotone" dataKey="metaLicServAcum" name="Meta Lic+Serv" stroke="#1d4ed8" strokeWidth={2} strokeDasharray="6 3" dot={false} />
-            <Line type="monotone" dataKey="metaRecorrenteAcum" name="Meta Recorrente" stroke="#7c3aed" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+            <Bar yAxisId="currency" dataKey="realLicServAcum" name="Real Lic+Serv" fill="#3b82f6" opacity={0.7} radius={[2, 2, 0, 0]} />
+            <Bar yAxisId="currency" dataKey="realRecorrenteAcum" name="Real Recorrente" fill="#a855f7" opacity={0.7} radius={[2, 2, 0, 0]} />
+            <Line yAxisId="currency" type="monotone" dataKey="metaLicServAcum" name="Meta Lic+Serv" stroke="#1d4ed8" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+            <Line yAxisId="currency" type="monotone" dataKey="metaRecorrenteAcum" name="Meta Recorrente" stroke="#7c3aed" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+            <Line yAxisId="pct" type="monotone" dataKey="atingimentoAcum" name="Atingimento %" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

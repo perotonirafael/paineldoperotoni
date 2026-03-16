@@ -50,6 +50,15 @@ const MONTH_KEYS: Record<string, keyof GoalRecord> = {
   Outubro: 'outubro', Novembro: 'novembro', Dezembro: 'dezembro',
 };
 
+export interface AnnualMonthData {
+  mes: string;
+  metaLicServAcum: number;
+  realLicServAcum: number;
+  metaRecorrenteAcum: number;
+  realRecorrenteAcum: number;
+  atingimentoAcum: number;
+}
+
 export interface AnnualGoalResult {
   metaLicencasServicos: number;
   realLicencasServicos: number;
@@ -61,18 +70,8 @@ export interface AnnualGoalResult {
   monthlyData: AnnualMonthData[];
 }
 
-export interface AnnualMonthData {
-  mes: string;
-  metaLicServAcum: number;
-  realLicServAcum: number;
-  metaRecorrenteAcum: number;
-  realRecorrenteAcum: number;
-}
-
 /**
- * Uses the EXACT same cross-referencing chain as useGoalMetricsProcessor:
- * Goal userId → Compromisso (eligible category) → Oportunidade (Fechada e Ganha) → Pedido
- * But accumulates ALL months of the year instead of filtering by period.
+ * Same cross-referencing as useGoalMetricsProcessor but accumulates ALL 12 months.
  */
 export const useAnnualGoalMetrics = (
   goals: GoalRecord[],
@@ -82,11 +81,16 @@ export const useAnnualGoalMetrics = (
   selectedYear?: string,
 ): AnnualGoalResult | null => {
   return useMemo(() => {
-    if (!goals.length || !pedidos.length) return null;
+    if (!goals.length || !pedidos.length) {
+      console.log('[ANNUAL_GOAL] No goals or pedidos');
+      return null;
+    }
 
     const goalYears = new Set(goals.map(g => normalizeYear(g.ano)).filter(Boolean));
     const targetYear = selectedYear || (goalYears.size > 0 ? Array.from(goalYears)[0] : '');
-    if (!targetYear) return null;
+    if (!targetYear) { console.log('[ANNUAL_GOAL] No target year'); return null; }
+
+    console.log('[ANNUAL_GOAL] start', { targetYear, goals: goals.length, pedidos: pedidos.length, actions: actions.length, opportunities: opportunities.length });
 
     const actionCols = resolveColumns(actions, 'actions');
     const oppCols = resolveColumns(opportunities, 'opportunities');
@@ -94,6 +98,7 @@ export const useAnnualGoalMetrics = (
 
     // 0) Goal user IDs
     const goalUserIds = new Set(goals.map(g => g.idUsuario));
+    console.log('[ANNUAL_GOAL] Goal user IDs:', Array.from(goalUserIds));
 
     // 1) Map user ERP ID → Name
     const userIdToName = new Map<string, string>();
@@ -110,14 +115,16 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // Check at least one goal user is resolved
     let hasResolvedUser = false;
     for (const uid of goalUserIds) {
       if (userIdToName.has(uid)) { hasResolvedUser = true; break; }
     }
-    if (useRawDataset && !hasResolvedUser) return null;
+    if (useRawDataset && !hasResolvedUser) {
+      console.log('[ANNUAL_GOAL] No goal users resolved from raw data');
+      return null;
+    }
 
-    // 2) Eligible opp IDs from goal users (same chain as useGoalMetricsProcessor)
+    // 2) Eligible opp IDs from goal users
     const oppIdsWithValidCategory = new Set<string>();
     if (useRawDataset) {
       for (const action of actions as Record<string, any>[]) {
@@ -130,7 +137,11 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    if (oppIdsWithValidCategory.size === 0 && useRawDataset) return null;
+    console.log('[ANNUAL_GOAL] Eligible opp IDs from compromissos:', oppIdsWithValidCategory.size);
+    if (oppIdsWithValidCategory.size === 0 && useRawDataset) {
+      console.log('[ANNUAL_GOAL] No eligible compromissos. Returning null.');
+      return null;
+    }
 
     // 3) Won opp IDs + pedido nums
     const oppIdsFechadaGanha = new Set<string>();
@@ -151,7 +162,9 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // 4) Build pedido lookups
+    console.log('[ANNUAL_GOAL] Won opps:', oppIdsFechadaGanha.size, 'with pedido nums:', oppIdToPedidoNums.size);
+
+    // 4) Pedido lookups
     const pedidoByNumero = new Map<string, PedidoRecord[]>();
     const pedidoByOppId = new Map<string, PedidoRecord[]>();
     for (const pedido of pedidos) {
@@ -167,20 +180,17 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // 5) Calculate metas (same rubrica logic)
+    // 5) Calculate metas per month (same rubrica logic as useGoalMetricsProcessor)
     const hasTotalGestao = goals.some(g => norm(g.produto).includes('total'));
     const filteredGoals = hasTotalGestao ? goals.filter(g => norm(g.produto).includes('total')) : goals;
 
-    let metaTotalLicServ = 0;
-    let metaTotalRecorrente = 0;
-    const monthlyMetaLicServ: number[] = [];
-    const monthlyMetaRecorrente: number[] = [];
+    const monthlyMetaLicServ: number[] = new Array(12).fill(0);
+    const monthlyMetaRecorrente: number[] = new Array(12).fill(0);
 
-    for (const month of ALL_MONTHS) {
-      let metaLS = 0;
-      let metaRec = 0;
+    for (let i = 0; i < 12; i++) {
+      const month = ALL_MONTHS[i];
+      const key = MONTH_KEYS[month];
       for (const goal of filteredGoals) {
-        const key = MONTH_KEYS[month];
         const metaValue = (goal[key] as number) || 0;
         const rubricaNorm = norm(goal.rubrica);
         if (
@@ -189,25 +199,19 @@ export const useAnnualGoalMetrics = (
           rubricaNorm.includes('servicos não recorrentes') ||
           (rubricaNorm.includes('servico') && rubricaNorm.includes('nao recorrente'))
         ) {
-          metaLS += metaValue;
+          monthlyMetaLicServ[i] += metaValue;
         } else if (rubricaNorm.includes('recorrente') && !rubricaNorm.includes('nao')) {
-          metaRec += metaValue;
+          monthlyMetaRecorrente[i] += metaValue;
         }
       }
-      monthlyMetaLicServ.push(metaLS);
-      monthlyMetaRecorrente.push(metaRec);
-      metaTotalLicServ += metaLS;
-      metaTotalRecorrente += metaRec;
     }
 
-    // 6) Calculate realized per month using the SAME chain
-    const monthNameToIdx: Record<string, number> = {};
-    ALL_MONTHS.forEach((m, i) => { monthNameToIdx[m] = i; });
-
+    // 6) Calculate realized per month
     const monthlyRealLicenca: number[] = new Array(12).fill(0);
     const monthlyRealServico: number[] = new Array(12).fill(0);
     const monthlyRealRecorrente: number[] = new Array(12).fill(0);
 
+    let pedidosMatched = 0;
     for (const oppId of oppIdsFechadaGanha) {
       const pedidoNums = oppIdToPedidoNums.get(oppId);
       let matchedPedidos: PedidoRecord[] = [];
@@ -225,19 +229,23 @@ export const useAnnualGoalMetrics = (
 
       for (const pedido of matchedPedidos) {
         if (pedido.anoFechamento !== targetYear) continue;
-        const monthIdx = monthNameToIdx[pedido.mesFechamento];
-        if (monthIdx === undefined) continue;
+        const monthIdx = ALL_MONTHS.indexOf(pedido.mesFechamento);
+        if (monthIdx === -1) continue;
 
+        pedidosMatched++;
         monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);
         monthlyRealServico[monthIdx] += (pedido.servicoValorLiquido || 0);
         monthlyRealRecorrente[monthIdx] += (pedido.produtoValorManutencao || 0);
       }
     }
 
+    console.log('[ANNUAL_GOAL] Pedidos matched:', pedidosMatched);
+
     // 7) Build cumulative monthly data + totals
     const monthlyData: AnnualMonthData[] = [];
     let acumMetaLS = 0, acumRealLS = 0, acumMetaR = 0, acumRealR = 0;
     let totalRealLicenca = 0, totalRealServico = 0, totalRealRecorrente = 0;
+    let metaTotalLicServ = 0, metaTotalRecorrente = 0;
 
     for (let i = 0; i < 12; i++) {
       acumMetaLS += monthlyMetaLicServ[i];
@@ -247,6 +255,11 @@ export const useAnnualGoalMetrics = (
       totalRealLicenca += monthlyRealLicenca[i];
       totalRealServico += monthlyRealServico[i];
       totalRealRecorrente += monthlyRealRecorrente[i];
+      metaTotalLicServ += monthlyMetaLicServ[i];
+      metaTotalRecorrente += monthlyMetaRecorrente[i];
+
+      const pctLS = acumMetaLS > 0 ? (acumRealLS / acumMetaLS) * 100 : 0;
+      const pctR = acumMetaR > 0 ? (acumRealR / acumMetaR) * 100 : 0;
 
       monthlyData.push({
         mes: ALL_MONTHS[i].substring(0, 3),
@@ -254,12 +267,19 @@ export const useAnnualGoalMetrics = (
         realLicServAcum: acumRealLS,
         metaRecorrenteAcum: acumMetaR,
         realRecorrenteAcum: acumRealR,
+        atingimentoAcum: pctLS * 0.5 + pctR * 0.5,
       });
     }
 
     const realLicencasServicos = totalRealLicenca + totalRealServico;
     const pctLS = metaTotalLicServ > 0 ? (realLicencasServicos / metaTotalLicServ) * 100 : 0;
     const pctR = metaTotalRecorrente > 0 ? (totalRealRecorrente / metaTotalRecorrente) * 100 : 0;
+
+    console.log('[ANNUAL_GOAL] Totals:', {
+      metaLS: metaTotalLicServ, realLS: realLicencasServicos,
+      metaR: metaTotalRecorrente, realR: totalRealRecorrente,
+      atingimento: (pctLS * 0.5 + pctR * 0.5).toFixed(1),
+    });
 
     return {
       metaLicencasServicos: metaTotalLicServ,
