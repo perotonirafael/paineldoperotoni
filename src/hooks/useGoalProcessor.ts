@@ -294,6 +294,7 @@ export const useGoalProcessor = () => {
       const colProduto = resolveHeader(headers, ['Produto']);
       const colIdUsuario = resolveHeader(headers, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
       const colRubrica = resolveHeader(headers, ['Rubrica']);
+      const colAno = resolveHeader(headers, ['Ano']);
       const colJaneiro = resolveHeader(headers, ['Janeiro']);
       const colFevereiro = resolveHeader(headers, ['Fevereiro']);
       const colMarco = resolveHeader(headers, ['Março', 'Marco']);
@@ -311,6 +312,7 @@ export const useGoalProcessor = () => {
       const idxProduto = headers.indexOf(colProduto);
       const idxIdUsuario = headers.indexOf(colIdUsuario);
       const idxRubrica = headers.indexOf(colRubrica);
+      const idxAno = headers.indexOf(colAno);
       const idxJaneiro = headers.indexOf(colJaneiro);
       const idxFevereiro = headers.indexOf(colFevereiro);
       const idxMarco = headers.indexOf(colMarco);
