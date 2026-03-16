@@ -1,4 +1,4 @@
-name: Deploy via ftp
+name: Deploy Locaweb
 
 on:
   push:
@@ -7,29 +7,26 @@ on:
 
 jobs:
   deploy:
-    name: Build e Deploy
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Baixar repositório
+        uses: actions/checkout@v4
 
-      - name: Configurar Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Instalar dependências
-        run: npm install --legacy-peer-deps
+        run: bun install --frozen-lockfile
 
       - name: Gerar build
-        run: npm run build
+        run: bun run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
 
-      - name: FTP Deploy Locaweb
+      - name: Publicar via FTP na Locaweb
         uses: locaweb/ftp-deploy@1.0.0
         with:
           host: ${{ secrets.HOST }}
