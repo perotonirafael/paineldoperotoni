@@ -1043,7 +1043,7 @@ export default function Home() {
                 }
                 </div>
               </div>
-              <GoalChart metricas={goalMetricas} title="" goalComposition={goalMetricasResult.goalComposition} matchedPedidos={goalMetricasResult.matchedPedidos} />
+              <GoalChart metricas={goalMetricas} title="" goalComposition={goalMetricasResult.goalComposition} matchedPedidos={goalMetricasResult.matchedPedidos} allPedidos={pedidos} selectedPeriod={selectedPeriod} />
             </div>
 
             {/* Evolução Anual da Meta - não influenciado por filtros de período */}
