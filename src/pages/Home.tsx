@@ -26,9 +26,20 @@ import { DEMO_DATA } from '@/lib/demoData';
 import { isDemoCommitmentCategory, isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { saveToCache, loadFromCache, clearCache, getCacheInfo } from '@/hooks/useDataCache';
 
-export default function Home() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [actions, setActions] = useState<Action[]>([]);
+interface HomeProps {
+  publishedSnapshot?: {
+    workerResult: any;
+    goals: any[];
+    pedidos: any[];
+    rawOpportunities: any[];
+    rawActions: any[];
+  };
+  hideHeader?: boolean;
+}
+
+export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) {
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(publishedSnapshot?.rawOpportunities || []);
+  const [actions, setActions] = useState<Action[]>(publishedSnapshot?.rawActions || []);
   const [error, setError] = useState<string | null>(null);
 
   const [oppFile, setOppFile] = useState<File | null>(null);
@@ -39,16 +50,16 @@ export default function Home() {
   const [pedidoFile, setPedidoFile] = useState<File | null>(null);
   const [goalFileName, setGoalFileName] = useState('');
   const [pedidoFileName, setPedidoFileName] = useState('');
-  const [goals, setGoals] = useState<GoalRecord[]>([]);
-  const [pedidos, setPedidos] = useState<PedidoRecord[]>([]);
+  const [goals, setGoals] = useState<GoalRecord[]>(publishedSnapshot?.goals || []);
+  const [pedidos, setPedidos] = useState<PedidoRecord[]>(publishedSnapshot?.pedidos || []);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('Março'); // Período padrão
 
   const { state: processingState, processFiles: processFilesLegacy, resetState } = useFileProcessor();
   const { processData: processDataWithWorker, processFiles: processFilesWithWorker, isProcessing: isWorkerProcessing, progress: workerProgress } = useWorkerDataProcessor();
   const { parseGoalsFile, parsePedidosFile } = useGoalProcessor();
   const { isPersistingUploads, persistFilesTemporarily } = useTemporaryUploadStorage();
-  const [workerResult, setWorkerResult] = useState<any>(null);
-  const [useWorkerOnly, setUseWorkerOnly] = useState(false);
+  const [workerResult, setWorkerResult] = useState<any>(publishedSnapshot?.workerResult || null);
+  const [useWorkerOnly, setUseWorkerOnly] = useState(!!publishedSnapshot);
   const [lightOpportunities, setLightOpportunities] = useState<Opportunity[]>([]);
   const [lightActions, setLightActions] = useState<Action[]>([]);
 
@@ -704,7 +715,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-      {/* Header */}
+      {/* Header - hidden when inside AppLayout */}
+      {!hideHeader && (
       <div className="sticky top-0 z-40 bg-gradient-to-r from-green-600 to-emerald-700 text-white shadow-lg">
         <div className="container py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -718,6 +730,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="container py-8">
         {/* Upload Section */}

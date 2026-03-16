@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      data_batches: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          file_count: number | null
+          id: string
+          notes: string | null
+          published_at: string | null
+          snapshot_path: string | null
+          status: string
+          updated_at: string | null
+          version_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          file_count?: number | null
+          id?: string
+          notes?: string | null
+          published_at?: string | null
+          snapshot_path?: string | null
+          status?: string
+          updated_at?: string | null
+          version_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          file_count?: number | null
+          id?: string
+          notes?: string | null
+          published_at?: string | null
+          snapshot_path?: string | null
+          status?: string
+          updated_at?: string | null
+          version_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       temp_upload_batches: {
         Row: {
           act_file_name: string | null
@@ -94,15 +171,92 @@ export type Database = {
           },
         ]
       }
+      uploaded_files: {
+        Row: {
+          batch_id: string | null
+          created_at: string | null
+          file_size: number | null
+          file_type: string | null
+          id: string
+          mime_type: string | null
+          original_name: string | null
+          storage_path: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          mime_type?: string | null
+          original_name?: string | null
+          storage_path?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          mime_type?: string | null
+          original_name?: string | null
+          storage_path?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uploaded_files_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "data_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "uploaded_files_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_active_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "analista" | "consulta"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -229,6 +383,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "analista", "consulta"],
+    },
   },
 } as const
