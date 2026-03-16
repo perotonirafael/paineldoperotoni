@@ -99,7 +99,7 @@ export const useGoalMetricsProcessor = (
     const goalUserIds = new Set(goals.map((g) => g.idUsuario));
     console.log('[GOAL_METRICS] Goal user IDs:', Array.from(goalUserIds));
 
-    // 1) Map user ERP ID → Name (only from data, NO hardcoded names)
+    // 1) Map user ERP ID → Name (only from raw data when available)
     const userIdToName = new Map<string, string>();
 
     if (useRawDataset) {
@@ -120,7 +120,6 @@ export const useGoalMetricsProcessor = (
       }
     }
 
-    // Resolve goal user names from actual data only
     const goalUserNames = new Map<string, string>();
     for (const userId of goalUserIds) {
       const mapped = userIdToName.get(userId);
@@ -132,9 +131,8 @@ export const useGoalMetricsProcessor = (
     console.log('[GOAL_METRICS] User ID → Name mapping:', Object.fromEntries(userIdToName));
     console.log('[GOAL_METRICS] Goal users resolved:', Object.fromEntries(goalUserNames));
 
-    // If no goal user could be resolved, we can't do the cross-reference
-    if (goalUserNames.size === 0) {
-      console.log('[GOAL_METRICS] No goal users could be resolved from data. Returning empty metrics.');
+    if (useRawDataset && goalUserNames.size === 0) {
+      console.log('[GOAL_METRICS] No goal users could be resolved from raw data. Returning empty metrics.');
       return [];
     }
 
