@@ -59,6 +59,36 @@ export interface AnnualMonthData {
   atingimentoAcum: number;
 }
 
+export interface MatchedPedidoExport {
+  numeroPedido: string;
+  idOportunidade: string;
+  proprietario: string;
+  dataFechamento: string;
+  mesFechamento: string;
+  produtoModulo: string;
+  valorLicenca: number;
+  valorServico: number;
+  valorManutencao: number;
+}
+
+export interface GoalCompositionExport {
+  produto: string;
+  rubrica: string;
+  janeiro: number;
+  fevereiro: number;
+  marco: number;
+  abril: number;
+  maio: number;
+  junho: number;
+  julho: number;
+  agosto: number;
+  setembro: number;
+  outubro: number;
+  novembro: number;
+  dezembro: number;
+  totalAno: number;
+}
+
 export interface AnnualGoalResult {
   metaLicencasServicos: number;
   realLicencasServicos: number;
@@ -68,6 +98,8 @@ export interface AnnualGoalResult {
   realRecorrente: number;
   percentualAtingimento: number;
   monthlyData: AnnualMonthData[];
+  goalComposition: GoalCompositionExport[];
+  matchedPedidos: MatchedPedidoExport[];
 }
 
 /**
