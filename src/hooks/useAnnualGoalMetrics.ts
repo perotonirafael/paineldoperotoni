@@ -62,13 +62,28 @@ export interface AnnualMonthData {
 export interface MatchedPedidoExport {
   numeroPedido: string;
   idOportunidade: string;
+  etapaOportunidade: string;
   proprietario: string;
+  idErpProprietario: string;
   dataFechamento: string;
+  anoFechamento: string;
   mesFechamento: string;
+  produto: string;
+  produtoCodigoModulo: string;
   produtoModulo: string;
   valorLicenca: number;
-  valorServico: number;
+  valorLicencaCanal: number;
   valorManutencao: number;
+  valorManutencaoCanal: number;
+  servico: string;
+  servicoTipoDeFaturamento: string;
+  servicoQtdeDeHoras: number;
+  servicoValorHora: number;
+  servicoValorBruto: number;
+  servicoValorOver: number;
+  servicoValorDesconto: number;
+  servicoValorCanal: number;
+  servicoValorLiquido: number;
 }
 
 export interface GoalCompositionExport {
