@@ -1043,7 +1043,7 @@ export default function Home() {
                 }
                 </div>
               </div>
-              <GoalChart metricas={goalMetricas} title="" goalComposition={goalMetricasResult.goalComposition} matchedPedidos={goalMetricasResult.matchedPedidos} />
+              <GoalChart metricas={goalMetricas} title="" goalComposition={goalMetricasResult.goalComposition} matchedPedidos={goalMetricasResult.matchedPedidos} allPedidos={pedidos} selectedPeriod={selectedPeriod} />
             </div>
 
             {/* Evolução Anual da Meta - não influenciado por filtros de período */}
@@ -1055,7 +1055,7 @@ export default function Home() {
                 </h3>
                 <p className="text-xs text-muted-foreground">Acumulado mês a mês · Apenas filtro de ano</p>
               </div>
-              <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} />
+              <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} allPedidos={pedidos} />
             </div>
 
             {/* Charts */}

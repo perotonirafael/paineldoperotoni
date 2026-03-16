@@ -14,12 +14,15 @@ import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import type { GoalMetrics } from '@/types/goals';
 import type { MatchedPedidoExport, GoalCompositionExport } from '@/hooks/useAnnualGoalMetrics';
+import type { PedidoRecord } from '@/types/goals';
 
 interface GoalChartProps {
   metricas: GoalMetrics[];
   title?: string;
   goalComposition?: GoalCompositionExport[];
   matchedPedidos?: MatchedPedidoExport[];
+  allPedidos?: PedidoRecord[];
+  selectedPeriod?: string;
 }
 
 const DETAIL_PAGE_SIZE = 15;
@@ -34,7 +37,45 @@ const getColor = (percentage: number): string => {
   return '#ef4444';
 };
 
-export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalComposition = [], matchedPedidos = [] }) => {
+const PERIOD_MONTHS: Record<string, string[]> = {
+  Janeiro: ['Janeiro'], Fevereiro: ['Fevereiro'], Março: ['Março'],
+  '1ºTrimestre': ['Janeiro', 'Fevereiro', 'Março'],
+  Abril: ['Abril'], Maio: ['Maio'], Junho: ['Junho'],
+  '2ºTrimestre': ['Abril', 'Maio', 'Junho'],
+  Julho: ['Julho'], Agosto: ['Agosto'], Setembro: ['Setembro'],
+  '3ºTrimestre': ['Julho', 'Agosto', 'Setembro'],
+  Outubro: ['Outubro'], Novembro: ['Novembro'], Dezembro: ['Dezembro'],
+  '4ºTrimestre': ['Outubro', 'Novembro', 'Dezembro'],
+};
+
+const pedidoToExportRow = (p: PedidoRecord) => ({
+  'Nº Pedido': p.numeroPedido,
+  'ID Oportunidade': p.idOportunidade,
+  'Etapa': p.idEtapaOportunidade,
+  Proprietário: p.proprietarioOportunidade,
+  'ID ERP Proprietário': p.idErpProprietario,
+  'Data Fechamento': p.dataFechamento,
+  'Ano Fechamento': p.anoFechamento,
+  'Mês Fechamento': p.mesFechamento,
+  Produto: p.produto,
+  'Código Módulo': p.produtoCodigoModulo,
+  'Produto/Módulo': p.produtoModulo,
+  'Valor Licença': p.produtoValorLicenca || 0,
+  'Valor Licença Canal': p.produtoValorLicencaCanal || 0,
+  'Valor Manutenção': p.produtoValorManutencao || 0,
+  'Valor Manutenção Canal': p.produtoValorManutencaoCanal || 0,
+  Serviço: p.servico,
+  'Tipo Faturamento': p.servicoTipoDeFaturamento,
+  'Qtde Horas': p.servicoQtdeDeHoras || 0,
+  'Valor Hora': p.servicoValorHora || 0,
+  'Valor Bruto': p.servicoValorBruto || 0,
+  'Valor Over': p.servicoValorOver || 0,
+  'Valor Desconto': p.servicoValorDesconto || 0,
+  'Valor Canal': p.servicoValorCanal || 0,
+  'Valor Líquido Serviço': p.servicoValorLiquido || 0,
+});
+
+export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalComposition = [], matchedPedidos = [], allPedidos = [], selectedPeriod = '' }) => {
   const [detailPage, setDetailPage] = useState(0);
 
   const handleExportXLSX = useCallback(() => {
@@ -55,9 +96,11 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
     }
 
-    // Aba 2: Pedidos Identificados
+    // Aba 2: Pedidos Identificados (detalhado por linha de pedido)
+    // Usar matchedPedidos do cruzamento; fallback: filtrar allPedidos pelo período
+    let pedidoRows: ReturnType<typeof pedidoToExportRow>[] = [];
     if (matchedPedidos.length > 0) {
-      const pedidos = matchedPedidos.map(p => ({
+      pedidoRows = matchedPedidos.map(p => ({
         'Nº Pedido': p.numeroPedido,
         'ID Oportunidade': p.idOportunidade,
         'Etapa': p.etapaOportunidade,
@@ -83,7 +126,13 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
         'Valor Canal': p.servicoValorCanal,
         'Valor Líquido Serviço': p.servicoValorLiquido,
       }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidos), 'Pedidos Identificados');
+    } else if (allPedidos.length > 0 && selectedPeriod) {
+      const months = PERIOD_MONTHS[selectedPeriod] || [];
+      const filtered = allPedidos.filter(p => months.includes(p.mesFechamento));
+      pedidoRows = filtered.map(pedidoToExportRow);
+    }
+    if (pedidoRows.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Identificados');
     }
 
     // Aba 3: Detalhamento por ETN
@@ -104,7 +153,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
     }
 
     XLSX.writeFile(wb, `Atingimento_Metas_${title || 'export'}.xlsx`);
-  }, [metricas, title, goalComposition, matchedPedidos]);
+  }, [metricas, title, goalComposition, matchedPedidos, allPedidos, selectedPeriod]);
 
   if (!metricas || metricas.length === 0) {
     return (
