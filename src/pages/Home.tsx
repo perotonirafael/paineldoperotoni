@@ -26,7 +26,18 @@ import { DEMO_DATA } from '@/lib/demoData';
 import { isDemoCommitmentCategory, isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { saveToCache, loadFromCache, clearCache, getCacheInfo } from '@/hooks/useDataCache';
 
-export default function Home() {
+interface HomeProps {
+  publishedSnapshot?: {
+    workerResult: any;
+    goals: any[];
+    pedidos: any[];
+    rawOpportunities: any[];
+    rawActions: any[];
+  };
+  hideHeader?: boolean;
+}
+
+export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
   const [error, setError] = useState<string | null>(null);
