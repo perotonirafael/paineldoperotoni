@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
-import type { ProcessedRecord } from './useDataProcessor';
 import type { Action, Opportunity } from './useDataProcessor';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
@@ -51,37 +50,52 @@ const MONTH_KEYS: Record<string, keyof GoalRecord> = {
   Outubro: 'outubro', Novembro: 'novembro', Dezembro: 'dezembro',
 };
 
+export interface AnnualGoalResult {
+  metaLicencasServicos: number;
+  realLicencasServicos: number;
+  realLicenca: number;
+  realServico: number;
+  metaRecorrente: number;
+  realRecorrente: number;
+  percentualAtingimento: number;
+  monthlyData: AnnualMonthData[];
+}
+
 export interface AnnualMonthData {
   mes: string;
   metaLicServAcum: number;
   realLicServAcum: number;
   metaRecorrenteAcum: number;
   realRecorrenteAcum: number;
-  percentualAcum: number;
 }
 
+/**
+ * Uses the EXACT same cross-referencing chain as useGoalMetricsProcessor:
+ * Goal userId → Compromisso (eligible category) → Oportunidade (Fechada e Ganha) → Pedido
+ * But accumulates ALL months of the year instead of filtering by period.
+ */
 export const useAnnualGoalMetrics = (
   goals: GoalRecord[],
   pedidos: PedidoRecord[],
   actions: Action[],
   opportunities: Opportunity[],
   selectedYear?: string,
-) => {
-  return useMemo((): AnnualMonthData[] => {
-    if (!goals.length || !pedidos.length) return [];
+): AnnualGoalResult | null => {
+  return useMemo(() => {
+    if (!goals.length || !pedidos.length) return null;
 
     const goalYears = new Set(goals.map(g => normalizeYear(g.ano)).filter(Boolean));
     const targetYear = selectedYear || (goalYears.size > 0 ? Array.from(goalYears)[0] : '');
-    if (!targetYear) return [];
+    if (!targetYear) return null;
 
     const actionCols = resolveColumns(actions, 'actions');
     const oppCols = resolveColumns(opportunities, 'opportunities');
     const useRawDataset = actions.length > 0 && opportunities.length > 0;
 
-    // Goal user IDs
+    // 0) Goal user IDs
     const goalUserIds = new Set(goals.map(g => g.idUsuario));
 
-    // User ID → Name
+    // 1) Map user ERP ID → Name
     const userIdToName = new Map<string, string>();
     if (useRawDataset) {
       for (const action of actions as Record<string, any>[]) {
@@ -96,7 +110,14 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // Eligible opp IDs from goal users
+    // Check at least one goal user is resolved
+    let hasResolvedUser = false;
+    for (const uid of goalUserIds) {
+      if (userIdToName.has(uid)) { hasResolvedUser = true; break; }
+    }
+    if (useRawDataset && !hasResolvedUser) return null;
+
+    // 2) Eligible opp IDs from goal users (same chain as useGoalMetricsProcessor)
     const oppIdsWithValidCategory = new Set<string>();
     if (useRawDataset) {
       for (const action of actions as Record<string, any>[]) {
@@ -109,7 +130,9 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // Won opp IDs + pedido nums
+    if (oppIdsWithValidCategory.size === 0 && useRawDataset) return null;
+
+    // 3) Won opp IDs + pedido nums
     const oppIdsFechadaGanha = new Set<string>();
     const oppIdToPedidoNums = new Map<string, Set<string>>();
     if (useRawDataset) {
@@ -128,7 +151,7 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // Build pedido lookups
+    // 4) Build pedido lookups
     const pedidoByNumero = new Map<string, PedidoRecord[]>();
     const pedidoByOppId = new Map<string, PedidoRecord[]>();
     for (const pedido of pedidos) {
@@ -144,16 +167,17 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // Filter goals for target year
+    // 5) Calculate metas (same rubrica logic)
     const hasTotalGestao = goals.some(g => norm(g.produto).includes('total'));
     const filteredGoals = hasTotalGestao ? goals.filter(g => norm(g.produto).includes('total')) : goals;
 
-    // Calculate monthly meta
+    let metaTotalLicServ = 0;
+    let metaTotalRecorrente = 0;
     const monthlyMetaLicServ: number[] = [];
     const monthlyMetaRecorrente: number[] = [];
 
     for (const month of ALL_MONTHS) {
-      let metaLicServ = 0;
+      let metaLS = 0;
       let metaRec = 0;
       for (const goal of filteredGoals) {
         const key = MONTH_KEYS[month];
@@ -165,21 +189,24 @@ export const useAnnualGoalMetrics = (
           rubricaNorm.includes('servicos não recorrentes') ||
           (rubricaNorm.includes('servico') && rubricaNorm.includes('nao recorrente'))
         ) {
-          metaLicServ += metaValue;
+          metaLS += metaValue;
         } else if (rubricaNorm.includes('recorrente') && !rubricaNorm.includes('nao')) {
           metaRec += metaValue;
         }
       }
-      monthlyMetaLicServ.push(metaLicServ);
+      monthlyMetaLicServ.push(metaLS);
       monthlyMetaRecorrente.push(metaRec);
+      metaTotalLicServ += metaLS;
+      metaTotalRecorrente += metaRec;
     }
 
-    // Calculate monthly realized from pedidos
-    const monthlyRealLicServ: number[] = new Array(12).fill(0);
-    const monthlyRealRecorrente: number[] = new Array(12).fill(0);
-
+    // 6) Calculate realized per month using the SAME chain
     const monthNameToIdx: Record<string, number> = {};
     ALL_MONTHS.forEach((m, i) => { monthNameToIdx[m] = i; });
+
+    const monthlyRealLicenca: number[] = new Array(12).fill(0);
+    const monthlyRealServico: number[] = new Array(12).fill(0);
+    const monthlyRealRecorrente: number[] = new Array(12).fill(0);
 
     for (const oppId of oppIdsFechadaGanha) {
       const pedidoNums = oppIdToPedidoNums.get(oppId);
@@ -201,34 +228,48 @@ export const useAnnualGoalMetrics = (
         const monthIdx = monthNameToIdx[pedido.mesFechamento];
         if (monthIdx === undefined) continue;
 
-        monthlyRealLicServ[monthIdx] += (pedido.produtoValorLicenca || 0) + (pedido.servicoValorLiquido || 0);
+        monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);
+        monthlyRealServico[monthIdx] += (pedido.servicoValorLiquido || 0);
         monthlyRealRecorrente[monthIdx] += (pedido.produtoValorManutencao || 0);
       }
     }
 
-    // Build cumulative data
-    const result: AnnualMonthData[] = [];
+    // 7) Build cumulative monthly data + totals
+    const monthlyData: AnnualMonthData[] = [];
     let acumMetaLS = 0, acumRealLS = 0, acumMetaR = 0, acumRealR = 0;
+    let totalRealLicenca = 0, totalRealServico = 0, totalRealRecorrente = 0;
 
     for (let i = 0; i < 12; i++) {
       acumMetaLS += monthlyMetaLicServ[i];
-      acumRealLS += monthlyRealLicServ[i];
+      acumRealLS += monthlyRealLicenca[i] + monthlyRealServico[i];
       acumMetaR += monthlyMetaRecorrente[i];
       acumRealR += monthlyRealRecorrente[i];
+      totalRealLicenca += monthlyRealLicenca[i];
+      totalRealServico += monthlyRealServico[i];
+      totalRealRecorrente += monthlyRealRecorrente[i];
 
-      const pctLS = acumMetaLS > 0 ? (acumRealLS / acumMetaLS) * 100 : 0;
-      const pctR = acumMetaR > 0 ? (acumRealR / acumMetaR) * 100 : 0;
-
-      result.push({
+      monthlyData.push({
         mes: ALL_MONTHS[i].substring(0, 3),
         metaLicServAcum: acumMetaLS,
         realLicServAcum: acumRealLS,
         metaRecorrenteAcum: acumMetaR,
         realRecorrenteAcum: acumRealR,
-        percentualAcum: pctLS * 0.5 + pctR * 0.5,
       });
     }
 
-    return result;
+    const realLicencasServicos = totalRealLicenca + totalRealServico;
+    const pctLS = metaTotalLicServ > 0 ? (realLicencasServicos / metaTotalLicServ) * 100 : 0;
+    const pctR = metaTotalRecorrente > 0 ? (totalRealRecorrente / metaTotalRecorrente) * 100 : 0;
+
+    return {
+      metaLicencasServicos: metaTotalLicServ,
+      realLicencasServicos,
+      realLicenca: totalRealLicenca,
+      realServico: totalRealServico,
+      metaRecorrente: metaTotalRecorrente,
+      realRecorrente: totalRealRecorrente,
+      percentualAtingimento: pctLS * 0.5 + pctR * 0.5,
+      monthlyData,
+    };
   }, [goals, pedidos, actions, opportunities, selectedYear]);
 };
