@@ -343,6 +343,7 @@ function processData(opportunities: any[], actions: any[]) {
         representante,
         responsavel,
         etn: 'Sem Agenda',
+        actionUserId: '',
         etapa,
         probabilidade: prob.str,
         probNum: prob.num,

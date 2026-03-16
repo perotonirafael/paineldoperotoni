@@ -384,7 +384,7 @@ export const useGoalMetricsProcessor = (
       percentualAtingimento: percentualLicTotal * 0.5 + percentualRecTotal * 0.5,
     };
 
-    console.log(`[GOAL_METRICS] Pedidos matched: ${pedidosMatchCount} of ${pedidos.length}`);
+    console.log(`[GOAL_METRICS] Pedidos matched in selected period/year: ${pedidosMatchCount} of ${pedidos.length} (ignored by date=${pedidosDateMismatchCount})`);
     console.log(`[GOAL_METRICS] TOTAL: realLicenca=${totalRealLicenca} realServico=${totalRealServico} realRecorrente=${totalRealRecorrente} atingimento=${totalMetric.percentualAtingimento.toFixed(1)}%`);
 
     for (const [goalUserId, goalName] of goalUserNames.entries()) {

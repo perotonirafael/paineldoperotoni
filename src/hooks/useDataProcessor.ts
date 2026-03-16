@@ -215,6 +215,7 @@ export function useDataProcessor(opportunities: Opportunity[], actions: Action[]
           representante: trim(opp['Representante']),
           responsavel: trim(opp['Responsável']),
           etn: 'Sem Agenda',
+          actionUserId: '',
           etapa: trim(opp['Etapa']),
           probabilidade: prob.str,
           probNum: prob.num,

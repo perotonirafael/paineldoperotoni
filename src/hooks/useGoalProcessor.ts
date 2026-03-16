@@ -441,12 +441,18 @@ export const useGoalProcessor = () => {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
 
+        const fechamento = parseSpreadsheetDate(row[colDataFechamento]);
+
         const pedido: PedidoRecord = {
           idOportunidade: row[colIdOpp] || '',
           numeroPedido: row[colNumeroPedido] || '',
           idEtapaOportunidade: row[colEtapa] || '',
           proprietarioOportunidade: row[colProp] || '',
           idErpProprietario: row[colIdErp] || '',
+          dataFechamento: fechamento.raw,
+          anoFechamento: fechamento.year,
+          mesFechamento: fechamento.month,
+          mesFechamentoNum: fechamento.monthNum,
           produto: row[colProduto] || '',
           produtoCodigoModulo: row[colCodModulo] || '',
           produtoModulo: row[colModulo] || '',

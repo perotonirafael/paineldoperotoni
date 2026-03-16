@@ -4,6 +4,7 @@ export interface GoalRecord {
   produto: string; // "HCM Senior", "HCM Konviva", "HCM JobConvo", "Total Gestão"
   idUsuario: string; // ID do usuário (ex: "11124")
   rubrica: string; // "Setup + Licenças", "Serviços Não Recorrentes", "Recorrente"
+  ano: string; // Ano da meta (ex: "2025")
   janeiro: number;
   fevereiro: number;
   marco: number;
@@ -29,6 +30,10 @@ export interface PedidoRecord {
   idEtapaOportunidade: string;
   proprietarioOportunidade: string;
   idErpProprietario: string;
+  dataFechamento: string;
+  anoFechamento: string;
+  mesFechamento: string;
+  mesFechamentoNum: number;
   produto: string;
   produtoCodigoModulo: string;
   produtoModulo: string;
