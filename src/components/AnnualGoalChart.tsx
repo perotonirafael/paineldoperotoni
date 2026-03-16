@@ -33,6 +33,36 @@ const getColorClass = (percentage: number): string => {
 };
 
 export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) => {
+  const handleExportXLSX = useCallback(() => {
+    if (!data) return;
+    const wb = XLSX.utils.book_new();
+
+    const resumo = [
+      { Indicador: 'Meta Licenças + Serviços', Valor: data.metaLicencasServicos },
+      { Indicador: 'Real Licenças + Serviços', Valor: data.realLicencasServicos },
+      { Indicador: '  └ Real Licença', Valor: data.realLicenca },
+      { Indicador: '  └ Real Serviço', Valor: data.realServico },
+      { Indicador: 'Meta Manutenção / Recorrente', Valor: data.metaRecorrente },
+      { Indicador: 'Real Manutenção / Recorrente', Valor: data.realRecorrente },
+      { Indicador: 'Atingimento Ponderado (%)', Valor: Number(data.percentualAtingimento.toFixed(2)) },
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
+
+    if (data.monthlyData?.length) {
+      const mensal = data.monthlyData.map(m => ({
+        Mês: m.mes,
+        'Meta Lic+Serv Acum': m.metaLicServAcum,
+        'Real Lic+Serv Acum': m.realLicServAcum,
+        'Meta Recorrente Acum': m.metaRecorrenteAcum,
+        'Real Recorrente Acum': m.realRecorrenteAcum,
+        'Atingimento Acum (%)': Number(m.atingimentoAcum.toFixed(2)),
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mensal), 'Evolução Mensal');
+    }
+
+    XLSX.writeFile(wb, `Meta_Anual_${year || new Date().getFullYear()}.xlsx`);
+  }, [data, year]);
+
   if (!data) {
     return (
       <div className="h-64 flex flex-col items-center justify-center bg-muted/20 rounded-lg border border-dashed border-border">
@@ -50,6 +80,13 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
 
   return (
     <div className="w-full space-y-6">
+      {/* Export button */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExportXLSX} className="gap-2">
+          <Download size={14} />
+          Exportar XLSX
+        </Button>
+      </div>
       {/* KPI Cards - same as GoalChart */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Licenças + Serviços */}
