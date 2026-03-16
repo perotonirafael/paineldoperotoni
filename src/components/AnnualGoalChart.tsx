@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Line, ComposedChart,
 } from 'recharts';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Button } from '@/components/ui/button';
 import type { AnnualGoalResult } from '@/hooks/useAnnualGoalMetrics';
 
 interface AnnualGoalChartProps {
