@@ -34,6 +34,52 @@ const getColor = (percentage: number): string => {
 export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
   const [detailPage, setDetailPage] = useState(0);
 
+  const handleExportXLSX = useCallback(() => {
+    if (!metricas || metricas.length === 0) return;
+    const wb = XLSX.utils.book_new();
+
+    const totalMetrica = metricas.find(m => m.etn === 'TOTAL');
+    const etnMetricas = metricas.filter(m => m.etn !== 'TOTAL');
+
+    // Resumo
+    if (totalMetrica) {
+      const pctLS = totalMetrica.metaLicencasServicos > 0
+        ? ((totalMetrica.realLicencasServicos / totalMetrica.metaLicencasServicos) * 100) : 0;
+      const pctR = totalMetrica.metaRecorrente > 0
+        ? ((totalMetrica.realRecorrente / totalMetrica.metaRecorrente) * 100) : 0;
+      const resumo = [
+        { Indicador: 'Meta Licenças + Serviços', Valor: totalMetrica.metaLicencasServicos },
+        { Indicador: 'Real Licenças + Serviços', Valor: totalMetrica.realLicencasServicos },
+        { Indicador: '  └ Real Licença', Valor: totalMetrica.realLicenca },
+        { Indicador: '  └ Real Serviço', Valor: totalMetrica.realServico },
+        { Indicador: '% Lic+Serv', Valor: Number(pctLS.toFixed(2)) },
+        { Indicador: 'Meta Manutenção / Recorrente', Valor: totalMetrica.metaRecorrente },
+        { Indicador: 'Real Manutenção / Recorrente', Valor: totalMetrica.realRecorrente },
+        { Indicador: '% Recorrente', Valor: Number(pctR.toFixed(2)) },
+        { Indicador: 'Atingimento Ponderado (%)', Valor: Number(totalMetrica.percentualAtingimento.toFixed(2)) },
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
+    }
+
+    // Detalhamento por ETN
+    const detalhe = etnMetricas
+      .filter(m => m.realLicencasServicos > 0 || m.realRecorrente > 0)
+      .sort((a, b) => (b.realLicencasServicos + b.realRecorrente) - (a.realLicencasServicos + a.realRecorrente))
+      .map(m => ({
+        ETN: m.etn,
+        'Real Licença': m.realLicenca,
+        'Real Serviço': m.realServico,
+        'Real Lic+Serv': m.realLicencasServicos,
+        'Real Manutenção': m.realRecorrente,
+        Total: m.realLicencasServicos + m.realRecorrente,
+      }));
+    if (detalhe.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalhe), 'Detalhamento ETN');
+    }
+
+    XLSX.writeFile(wb, `Atingimento_Metas_${title || 'export'}.xlsx`);
+  }, [metricas, title]);
+
   if (!metricas || metricas.length === 0) {
     return (
       <div className="w-full">
