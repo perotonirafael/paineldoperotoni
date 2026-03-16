@@ -258,6 +258,9 @@ export const useGoalMetricsProcessor = (
     for (const [, goalName] of goalUserNames) {
       allEtns.add(goalName);
     }
+    for (const etns of oppIdToEtn.values()) {
+      for (const etn of etns) allEtns.add(etn);
+    }
 
     if (allEtns.size === 0) allEtns.add('TOTAL');
 
