@@ -358,6 +358,7 @@ export const useGoalProcessor = () => {
 
         const pedido: PedidoRecord = {
           idOportunidade: row[colIdOpp] || '',
+          numeroPedido: row[colNumeroPedido] || '',
           idEtapaOportunidade: row[colEtapa] || '',
           proprietarioOportunidade: row[colProp] || '',
           idErpProprietario: row[colIdErp] || '',
