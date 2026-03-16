@@ -38,8 +38,8 @@ interface HomeProps {
 }
 
 export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [actions, setActions] = useState<Action[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(publishedSnapshot?.rawOpportunities || []);
+  const [actions, setActions] = useState<Action[]>(publishedSnapshot?.rawActions || []);
   const [error, setError] = useState<string | null>(null);
 
   const [oppFile, setOppFile] = useState<File | null>(null);
@@ -50,8 +50,8 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
   const [pedidoFile, setPedidoFile] = useState<File | null>(null);
   const [goalFileName, setGoalFileName] = useState('');
   const [pedidoFileName, setPedidoFileName] = useState('');
-  const [goals, setGoals] = useState<GoalRecord[]>([]);
-  const [pedidos, setPedidos] = useState<PedidoRecord[]>([]);
+  const [goals, setGoals] = useState<GoalRecord[]>(publishedSnapshot?.goals || []);
+  const [pedidos, setPedidos] = useState<PedidoRecord[]>(publishedSnapshot?.pedidos || []);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('Março'); // Período padrão
 
   const { state: processingState, processFiles: processFilesLegacy, resetState } = useFileProcessor();
