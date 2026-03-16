@@ -62,13 +62,28 @@ export interface AnnualMonthData {
 export interface MatchedPedidoExport {
   numeroPedido: string;
   idOportunidade: string;
+  etapaOportunidade: string;
   proprietario: string;
+  idErpProprietario: string;
   dataFechamento: string;
+  anoFechamento: string;
   mesFechamento: string;
+  produto: string;
+  produtoCodigoModulo: string;
   produtoModulo: string;
   valorLicenca: number;
-  valorServico: number;
+  valorLicencaCanal: number;
   valorManutencao: number;
+  valorManutencaoCanal: number;
+  servico: string;
+  servicoTipoDeFaturamento: string;
+  servicoQtdeDeHoras: number;
+  servicoValorHora: number;
+  servicoValorBruto: number;
+  servicoValorOver: number;
+  servicoValorDesconto: number;
+  servicoValorCanal: number;
+  servicoValorLiquido: number;
 }
 
 export interface GoalCompositionExport {
@@ -302,13 +317,28 @@ export const useAnnualGoalMetrics = (
         allMatchedPedidos.push({
           numeroPedido: pedido.numeroPedido,
           idOportunidade: pedido.idOportunidade,
+          etapaOportunidade: pedido.idEtapaOportunidade,
           proprietario: pedido.proprietarioOportunidade,
+          idErpProprietario: pedido.idErpProprietario,
           dataFechamento: pedido.dataFechamento,
+          anoFechamento: pedido.anoFechamento,
           mesFechamento: pedido.mesFechamento,
+          produto: pedido.produto,
+          produtoCodigoModulo: pedido.produtoCodigoModulo,
           produtoModulo: pedido.produtoModulo,
           valorLicenca: pedido.produtoValorLicenca || 0,
-          valorServico: pedido.servicoValorLiquido || 0,
+          valorLicencaCanal: pedido.produtoValorLicencaCanal || 0,
           valorManutencao: pedido.produtoValorManutencao || 0,
+          valorManutencaoCanal: pedido.produtoValorManutencaoCanal || 0,
+          servico: pedido.servico,
+          servicoTipoDeFaturamento: pedido.servicoTipoDeFaturamento,
+          servicoQtdeDeHoras: pedido.servicoQtdeDeHoras || 0,
+          servicoValorHora: pedido.servicoValorHora || 0,
+          servicoValorBruto: pedido.servicoValorBruto || 0,
+          servicoValorOver: pedido.servicoValorOver || 0,
+          servicoValorDesconto: pedido.servicoValorDesconto || 0,
+          servicoValorCanal: pedido.servicoValorCanal || 0,
+          servicoValorLiquido: pedido.servicoValorLiquido || 0,
         });
       }
     }
