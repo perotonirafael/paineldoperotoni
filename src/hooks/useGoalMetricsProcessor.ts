@@ -286,6 +286,13 @@ export const useGoalMetricsProcessor = (
     }
 
     let pedidosMatchCount = 0;
+    let pedidosDateMismatchCount = 0;
+
+    const isPedidoWithinSelectedPeriod = (pedido: PedidoRecord) => {
+      const monthMatch = months.includes(pedido.mesFechamento);
+      const yearMatch = goalYears.size === 0 || goalYears.has(pedido.anoFechamento);
+      return monthMatch && yearMatch;
+    };
 
     for (const oppId of oppIdsFechadaGanha) {
       const pedidoNums = oppIdToPedidoNums.get(oppId);
@@ -300,6 +307,11 @@ export const useGoalMetricsProcessor = (
         if (!matchedPedidos) continue;
 
         for (const pedido of matchedPedidos) {
+          if (!isPedidoWithinSelectedPeriod(pedido)) {
+            pedidosDateMismatchCount++;
+            continue;
+          }
+
           pedidosMatchCount++;
           const licenca = pedido.produtoValorLicenca || 0;
           const servico = pedido.servicoValorLiquido || 0;
