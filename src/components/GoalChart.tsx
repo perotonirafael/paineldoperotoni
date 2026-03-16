@@ -96,9 +96,11 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
     }
 
-    // Aba 2: Pedidos Identificados
+    // Aba 2: Pedidos Identificados (detalhado por linha de pedido)
+    // Usar matchedPedidos do cruzamento; fallback: filtrar allPedidos pelo período
+    let pedidoRows: ReturnType<typeof pedidoToExportRow>[] = [];
     if (matchedPedidos.length > 0) {
-      const pedidos = matchedPedidos.map(p => ({
+      pedidoRows = matchedPedidos.map(p => ({
         'Nº Pedido': p.numeroPedido,
         'ID Oportunidade': p.idOportunidade,
         'Etapa': p.etapaOportunidade,
@@ -124,7 +126,13 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalCompo
         'Valor Canal': p.servicoValorCanal,
         'Valor Líquido Serviço': p.servicoValorLiquido,
       }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidos), 'Pedidos Identificados');
+    } else if (allPedidos.length > 0 && selectedPeriod) {
+      const months = PERIOD_MONTHS[selectedPeriod] || [];
+      const filtered = allPedidos.filter(p => months.includes(p.mesFechamento));
+      pedidoRows = filtered.map(pedidoToExportRow);
+    }
+    if (pedidoRows.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Identificados');
     }
 
     // Aba 3: Detalhamento por ETN
