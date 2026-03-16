@@ -221,8 +221,10 @@ export const useGoalMetricsProcessor = (
       return [];
     }
 
-    // 4) Oportunidades Fechada e Ganha that have eligible compromissos from goal users
+    // 4) From Oportunidades, get "Pedido" number for eligible won opportunities
+    // Chain: eligible oppId → Oportunidades row (Fechada e Ganha) → Pedido column value
     const oppIdsFechadaGanha = new Set<string>();
+    const oppIdToPedidoNums = new Map<string, Set<string>>();
 
     if (useRawDataset) {
       for (const opp of opportunities as Record<string, any>[]) {
@@ -231,6 +233,11 @@ export const useGoalMetricsProcessor = (
         const isWon = etapa === 'Fechada e Ganha' || etapa === 'Fechada e Ganha TR';
         if (isWon && oppIdsWithValidCategory.has(oppId)) {
           oppIdsFechadaGanha.add(oppId);
+          const pedidoNum = getField(opp, oppCols.pedido);
+          if (pedidoNum) {
+            if (!oppIdToPedidoNums.has(oppId)) oppIdToPedidoNums.set(oppId, new Set());
+            oppIdToPedidoNums.get(oppId)!.add(pedidoNum);
+          }
         }
       }
     } else {
@@ -250,11 +257,22 @@ export const useGoalMetricsProcessor = (
 
     if (allEtns.size === 0) allEtns.add('TOTAL');
 
+    // Build a map of NUMERO PEDIDO → Pedido record for fast lookup
+    const pedidoByNumero = new Map<string, PedidoRecord[]>();
+    for (const pedido of pedidos) {
+      const num = (pedido.numeroPedido || '').trim();
+      if (!num) continue;
+      if (!pedidoByNumero.has(num)) pedidoByNumero.set(num, []);
+      pedidoByNumero.get(num)!.push(pedido);
+    }
+
     console.log('[GOAL_METRICS] OppIds with valid categories from goal users:', oppIdsWithValidCategory.size);
     console.log('[GOAL_METRICS] OppIds Fechada e Ganha:', oppIdsFechadaGanha.size);
+    console.log('[GOAL_METRICS] OppId → Pedido nums mappings:', oppIdToPedidoNums.size);
+    console.log('[GOAL_METRICS] Pedidos by NUMERO PEDIDO:', pedidoByNumero.size);
     console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
-    // 5) Pedidos linked to eligible won opportunities
+    // 5) Pedidos linked via: oppId → Oportunidades.Pedido → Pedidos.NUMERO PEDIDO
     const etnRealizacao = new Map<string, { realLicenca: number; realServico: number; realRecorrente: number; oppIds: Set<string> }>();
     for (const etn of allEtns) {
       etnRealizacao.set(etn, { realLicenca: 0, realServico: 0, realRecorrente: 0, oppIds: new Set() });
@@ -262,26 +280,33 @@ export const useGoalMetricsProcessor = (
 
     let pedidosMatchCount = 0;
 
-    for (const pedido of pedidos) {
-      const oppId = String(pedido.idOportunidade || '').trim();
-      if (!oppId || !oppIdsFechadaGanha.has(oppId)) continue;
-
-      pedidosMatchCount++;
-      const licenca = pedido.produtoValorLicenca || 0;
-      const servico = pedido.servicoValorLiquido || 0;
-      const recorrente = pedido.produtoValorManutencao || 0;
+    for (const oppId of oppIdsFechadaGanha) {
+      const pedidoNums = oppIdToPedidoNums.get(oppId);
+      if (!pedidoNums || pedidoNums.size === 0) continue;
 
       const etns = oppIdToEtn.get(oppId);
       if (!etns || etns.size === 0) continue;
-
       const divisor = etns.size;
-      for (const etn of etns) {
-        const real = etnRealizacao.get(etn);
-        if (!real) continue;
-        real.realLicenca += licenca / divisor;
-        real.realServico += servico / divisor;
-        real.realRecorrente += recorrente / divisor;
-        real.oppIds.add(oppId);
+
+      for (const pedidoNum of pedidoNums) {
+        const matchedPedidos = pedidoByNumero.get(pedidoNum);
+        if (!matchedPedidos) continue;
+
+        for (const pedido of matchedPedidos) {
+          pedidosMatchCount++;
+          const licenca = pedido.produtoValorLicenca || 0;
+          const servico = pedido.servicoValorLiquido || 0;
+          const recorrente = pedido.produtoValorManutencao || 0;
+
+          for (const etn of etns) {
+            const real = etnRealizacao.get(etn);
+            if (!real) continue;
+            real.realLicenca += licenca / divisor;
+            real.realServico += servico / divisor;
+            real.realRecorrente += recorrente / divisor;
+            real.oppIds.add(oppId);
+          }
+        }
       }
     }
 
