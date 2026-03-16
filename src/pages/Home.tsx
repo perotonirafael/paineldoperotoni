@@ -191,7 +191,8 @@ export default function Home() {
     });
   }, [processedData, selYears, selMonths, selReps, selResp, selETN, selStages, selProbs, selAgenda, selAccounts, selTypes, selSubtipos]);
 
-  const goalMetricas = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
+  const goalMetricasResult = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
+  const goalMetricas = goalMetricasResult.metricas;
   const selectedGoalYear = selYears.length === 1 ? selYears[0] : undefined;
   const annualGoalData = useAnnualGoalMetrics(goals, pedidos, actions, opportunities, processedData, selectedGoalYear);
 
@@ -1042,7 +1043,7 @@ export default function Home() {
                 }
                 </div>
               </div>
-              <GoalChart metricas={goalMetricas} title="" />
+              <GoalChart metricas={goalMetricas} title="" goalComposition={goalMetricasResult.goalComposition} matchedPedidos={goalMetricasResult.matchedPedidos} />
             </div>
 
             {/* Evolução Anual da Meta - não influenciado por filtros de período */}

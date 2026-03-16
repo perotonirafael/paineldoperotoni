@@ -37,17 +37,37 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
     if (!data) return;
     const wb = XLSX.utils.book_new();
 
-    const resumo = [
-      { Indicador: 'Meta Licenças + Serviços', Valor: data.metaLicencasServicos },
-      { Indicador: 'Real Licenças + Serviços', Valor: data.realLicencasServicos },
-      { Indicador: '  └ Real Licença', Valor: data.realLicenca },
-      { Indicador: '  └ Real Serviço', Valor: data.realServico },
-      { Indicador: 'Meta Manutenção / Recorrente', Valor: data.metaRecorrente },
-      { Indicador: 'Real Manutenção / Recorrente', Valor: data.realRecorrente },
-      { Indicador: 'Atingimento Ponderado (%)', Valor: Number(data.percentualAtingimento.toFixed(2)) },
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
+    // Aba 1: Composição das Metas
+    if (data.goalComposition?.length) {
+      const metas = data.goalComposition.map(g => ({
+        Produto: g.produto,
+        Rubrica: g.rubrica,
+        Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
+        Abril: g.abril, Maio: g.maio, Junho: g.junho,
+        Julho: g.julho, Agosto: g.agosto, Setembro: g.setembro,
+        Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro,
+        'Total Ano': g.totalAno,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
+    }
 
+    // Aba 2: Pedidos Identificados
+    if (data.matchedPedidos?.length) {
+      const pedidos = data.matchedPedidos.map(p => ({
+        'Nº Pedido': p.numeroPedido,
+        'ID Oportunidade': p.idOportunidade,
+        Proprietário: p.proprietario,
+        'Data Fechamento': p.dataFechamento,
+        'Mês Fechamento': p.mesFechamento,
+        'Produto/Módulo': p.produtoModulo,
+        'Valor Licença': p.valorLicenca,
+        'Valor Serviço': p.valorServico,
+        'Valor Manutenção': p.valorManutencao,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidos), 'Pedidos Identificados');
+    }
+
+    // Aba 3: Evolução Mensal
     if (data.monthlyData?.length) {
       const mensal = data.monthlyData.map(m => ({
         Mês: m.mes,

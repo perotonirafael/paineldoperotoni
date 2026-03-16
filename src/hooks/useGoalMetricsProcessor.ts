@@ -2,8 +2,15 @@ import { useMemo } from 'react';
 import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
 import type { ProcessedRecord } from './useDataProcessor';
 import type { Action, Opportunity } from './useDataProcessor';
+import type { MatchedPedidoExport, GoalCompositionExport } from './useAnnualGoalMetrics';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
+
+export interface GoalMetricsResult {
+  metricas: GoalMetrics[];
+  goalComposition: GoalCompositionExport[];
+  matchedPedidos: MatchedPedidoExport[];
+}
 
 function norm(s: string): string {
   return (s || '')
@@ -52,8 +59,9 @@ export const useGoalMetricsProcessor = (
   selectedPeriod: string,
   actions: Action[],
   opportunities: Opportunity[],
-) => {
-  const metricas = useMemo((): GoalMetrics[] => {
+): GoalMetricsResult => {
+  return useMemo((): GoalMetricsResult => {
+    const emptyResult: GoalMetricsResult = { metricas: [], goalComposition: [], matchedPedidos: [] };
     const periodToMonths: Record<string, string[]> = {
       Janeiro: ['Janeiro'],
       Fevereiro: ['Fevereiro'],
@@ -78,7 +86,7 @@ export const useGoalMetricsProcessor = (
     console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goalYears: Array.from(goalYears), goals: goals.length, pedidos: pedidos.length });
     if (!months.length || !goals.length) {
       console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', goals.length);
-      return [];
+      return emptyResult;
     }
 
     const actionCols = resolveColumns(actions, 'actions');
@@ -133,7 +141,7 @@ export const useGoalMetricsProcessor = (
 
     if (useRawDataset && goalUserNames.size === 0) {
       console.log('[GOAL_METRICS] No goal users could be resolved from raw data. Returning empty metrics.');
-      return [];
+      return emptyResult;
     }
 
     // 2) Metas do período
@@ -222,7 +230,7 @@ export const useGoalMetricsProcessor = (
     // NO fallback to all records - if no eligible compromissos from goal users, return empty
     if (oppIdsWithValidCategory.size === 0) {
       console.log('[GOAL_METRICS] No eligible compromissos from goal users found. Returning empty metrics.');
-      return [];
+      return emptyResult;
     }
 
     // 4) From Oportunidades, get "Pedido" number for eligible won opportunities
@@ -288,6 +296,16 @@ export const useGoalMetricsProcessor = (
     console.log('[GOAL_METRICS] Pedidos by OPP ID (direct):', pedidoByOppId.size);
     console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
+    // Goal composition for export
+    const goalComposition: GoalCompositionExport[] = filteredGoals.map(g => ({
+      produto: g.produto, rubrica: g.rubrica,
+      janeiro: g.janeiro, fevereiro: g.fevereiro, marco: g.marco,
+      abril: g.abril, maio: g.maio, junho: g.junho,
+      julho: g.julho, agosto: g.agosto, setembro: g.setembro,
+      outubro: g.outubro, novembro: g.novembro, dezembro: g.dezembro,
+      totalAno: g.totalAno,
+    }));
+
     // 5) Pedidos linked via: oppId → Oportunidades.Pedido → Pedidos.NUMERO PEDIDO
     const etnRealizacao = new Map<string, { realLicenca: number; realServico: number; realRecorrente: number; oppIds: Set<string> }>();
     for (const etn of allEtns) {
@@ -296,6 +314,7 @@ export const useGoalMetricsProcessor = (
 
     let pedidosMatchCount = 0;
     let pedidosDateMismatchCount = 0;
+    const allMatchedPedidos: MatchedPedidoExport[] = [];
 
     const isPedidoWithinSelectedPeriod = (pedido: PedidoRecord) => {
       const monthMatch = months.includes(pedido.mesFechamento);
@@ -335,6 +354,18 @@ export const useGoalMetricsProcessor = (
         const licenca = pedido.produtoValorLicenca || 0;
         const servico = pedido.servicoValorLiquido || 0;
         const recorrente = pedido.produtoValorManutencao || 0;
+
+        allMatchedPedidos.push({
+          numeroPedido: pedido.numeroPedido,
+          idOportunidade: pedido.idOportunidade,
+          proprietario: pedido.proprietarioOportunidade,
+          dataFechamento: pedido.dataFechamento,
+          mesFechamento: pedido.mesFechamento,
+          produtoModulo: pedido.produtoModulo,
+          valorLicenca: licenca,
+          valorServico: servico,
+          valorManutencao: recorrente,
+        });
 
         for (const etn of etns) {
           const real = etnRealizacao.get(etn);
@@ -418,8 +449,6 @@ export const useGoalMetricsProcessor = (
       });
     }
 
-    return [totalMetric, ...etnResults];
+    return { metricas: [totalMetric, ...etnResults], goalComposition, matchedPedidos: allMatchedPedidos };
   }, [goals, pedidos, processedData, selectedPeriod, actions, opportunities]);
-
-  return metricas;
 };

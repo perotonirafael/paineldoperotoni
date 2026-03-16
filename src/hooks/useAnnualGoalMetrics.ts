@@ -59,6 +59,36 @@ export interface AnnualMonthData {
   atingimentoAcum: number;
 }
 
+export interface MatchedPedidoExport {
+  numeroPedido: string;
+  idOportunidade: string;
+  proprietario: string;
+  dataFechamento: string;
+  mesFechamento: string;
+  produtoModulo: string;
+  valorLicenca: number;
+  valorServico: number;
+  valorManutencao: number;
+}
+
+export interface GoalCompositionExport {
+  produto: string;
+  rubrica: string;
+  janeiro: number;
+  fevereiro: number;
+  marco: number;
+  abril: number;
+  maio: number;
+  junho: number;
+  julho: number;
+  agosto: number;
+  setembro: number;
+  outubro: number;
+  novembro: number;
+  dezembro: number;
+  totalAno: number;
+}
+
 export interface AnnualGoalResult {
   metaLicencasServicos: number;
   realLicencasServicos: number;
@@ -68,6 +98,8 @@ export interface AnnualGoalResult {
   realRecorrente: number;
   percentualAtingimento: number;
   monthlyData: AnnualMonthData[];
+  goalComposition: GoalCompositionExport[];
+  matchedPedidos: MatchedPedidoExport[];
 }
 
 /**
@@ -216,28 +248,48 @@ export const useAnnualGoalMetrics = (
       }
     }
 
+    // Goal composition for export
+    const goalComposition: GoalCompositionExport[] = filteredGoals.map(g => ({
+      produto: g.produto,
+      rubrica: g.rubrica,
+      janeiro: g.janeiro,
+      fevereiro: g.fevereiro,
+      marco: g.marco,
+      abril: g.abril,
+      maio: g.maio,
+      junho: g.junho,
+      julho: g.julho,
+      agosto: g.agosto,
+      setembro: g.setembro,
+      outubro: g.outubro,
+      novembro: g.novembro,
+      dezembro: g.dezembro,
+      totalAno: g.totalAno,
+    }));
+
     // 6) Calculate realized per month
     const monthlyRealLicenca: number[] = new Array(12).fill(0);
     const monthlyRealServico: number[] = new Array(12).fill(0);
     const monthlyRealRecorrente: number[] = new Array(12).fill(0);
+    const allMatchedPedidos: MatchedPedidoExport[] = [];
 
     let pedidosMatched = 0;
     for (const oppId of oppIdsFechadaGanha) {
       const pedidoNums = oppIdToPedidoNums.get(oppId);
-      let matchedPedidos: PedidoRecord[] = [];
+      let matched: PedidoRecord[] = [];
 
       if (pedidoNums && pedidoNums.size > 0) {
         for (const num of pedidoNums) {
           const found = pedidoByNumero.get(num);
-          if (found) matchedPedidos.push(...found);
+          if (found) matched.push(...found);
         }
       }
-      if (matchedPedidos.length === 0) {
+      if (matched.length === 0) {
         const direct = pedidoByOppId.get(oppId);
-        if (direct) matchedPedidos = direct;
+        if (direct) matched = direct;
       }
 
-      for (const pedido of matchedPedidos) {
+      for (const pedido of matched) {
         if (pedido.anoFechamento !== targetYear) continue;
         const monthIdx = ALL_MONTHS.indexOf(pedido.mesFechamento);
         if (monthIdx === -1) continue;
@@ -246,6 +298,18 @@ export const useAnnualGoalMetrics = (
         monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);
         monthlyRealServico[monthIdx] += (pedido.servicoValorLiquido || 0);
         monthlyRealRecorrente[monthIdx] += (pedido.produtoValorManutencao || 0);
+
+        allMatchedPedidos.push({
+          numeroPedido: pedido.numeroPedido,
+          idOportunidade: pedido.idOportunidade,
+          proprietario: pedido.proprietarioOportunidade,
+          dataFechamento: pedido.dataFechamento,
+          mesFechamento: pedido.mesFechamento,
+          produtoModulo: pedido.produtoModulo,
+          valorLicenca: pedido.produtoValorLicenca || 0,
+          valorServico: pedido.servicoValorLiquido || 0,
+          valorManutencao: pedido.produtoValorManutencao || 0,
+        });
       }
     }
 
@@ -300,6 +364,8 @@ export const useAnnualGoalMetrics = (
       realRecorrente: totalRealRecorrente,
       percentualAtingimento: pctLS * 0.5 + pctR * 0.5,
       monthlyData,
+      goalComposition,
+      matchedPedidos: allMatchedPedidos,
     };
   }, [goals, pedidos, actions, opportunities, processedData, selectedYear]);
 };
