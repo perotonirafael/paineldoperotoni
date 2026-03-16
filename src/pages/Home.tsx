@@ -1055,7 +1055,7 @@ export default function Home() {
                 </h3>
                 <p className="text-xs text-muted-foreground">Acumulado mês a mês · Apenas filtro de ano</p>
               </div>
-              <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} />
+              <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} allPedidos={pedidos} />
             </div>
 
             {/* Charts */}

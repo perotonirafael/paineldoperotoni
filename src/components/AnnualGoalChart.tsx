@@ -34,7 +34,34 @@ const getColorClass = (percentage: number): string => {
   return 'bg-red-600';
 };
 
-export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) => {
+const pedidoToExportRow = (p: PedidoRecord) => ({
+  'Nº Pedido': p.numeroPedido,
+  'ID Oportunidade': p.idOportunidade,
+  'Etapa': p.idEtapaOportunidade,
+  Proprietário: p.proprietarioOportunidade,
+  'ID ERP Proprietário': p.idErpProprietario,
+  'Data Fechamento': p.dataFechamento,
+  'Ano Fechamento': p.anoFechamento,
+  'Mês Fechamento': p.mesFechamento,
+  Produto: p.produto,
+  'Código Módulo': p.produtoCodigoModulo,
+  'Produto/Módulo': p.produtoModulo,
+  'Valor Licença': p.produtoValorLicenca || 0,
+  'Valor Licença Canal': p.produtoValorLicencaCanal || 0,
+  'Valor Manutenção': p.produtoValorManutencao || 0,
+  'Valor Manutenção Canal': p.produtoValorManutencaoCanal || 0,
+  Serviço: p.servico,
+  'Tipo Faturamento': p.servicoTipoDeFaturamento,
+  'Qtde Horas': p.servicoQtdeDeHoras || 0,
+  'Valor Hora': p.servicoValorHora || 0,
+  'Valor Bruto': p.servicoValorBruto || 0,
+  'Valor Over': p.servicoValorOver || 0,
+  'Valor Desconto': p.servicoValorDesconto || 0,
+  'Valor Canal': p.servicoValorCanal || 0,
+  'Valor Líquido Serviço': p.servicoValorLiquido || 0,
+});
+
+export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year, allPedidos = [] }) => {
   const handleExportXLSX = useCallback(() => {
     if (!data) return;
     const wb = XLSX.utils.book_new();
@@ -53,9 +80,10 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
     }
 
-    // Aba 2: Pedidos Identificados
+    // Aba 2: Pedidos Identificados (detalhado por linha de pedido)
+    let pedidoRows: ReturnType<typeof pedidoToExportRow>[] = [];
     if (data.matchedPedidos?.length) {
-      const pedidos = data.matchedPedidos.map(p => ({
+      pedidoRows = data.matchedPedidos.map(p => ({
         'Nº Pedido': p.numeroPedido,
         'ID Oportunidade': p.idOportunidade,
         'Etapa': p.etapaOportunidade,
@@ -81,7 +109,11 @@ export const AnnualGoalChart: React.FC<AnnualGoalChartProps> = ({ data, year }) 
         'Valor Canal': p.servicoValorCanal,
         'Valor Líquido Serviço': p.servicoValorLiquido,
       }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidos), 'Pedidos Identificados');
+    } else if (allPedidos.length > 0 && year) {
+      pedidoRows = allPedidos.filter(p => p.anoFechamento === year).map(pedidoToExportRow);
+    }
+    if (pedidoRows.length > 0) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidoRows), 'Pedidos Identificados');
     }
 
     // Aba 3: Evolução Mensal
