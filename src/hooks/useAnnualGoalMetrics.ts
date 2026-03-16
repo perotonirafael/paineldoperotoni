@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
-import type { Action, Opportunity } from './useDataProcessor';
+import type { Action, Opportunity, ProcessedRecord } from './useDataProcessor';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 
