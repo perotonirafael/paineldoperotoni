@@ -2,8 +2,15 @@ import { useMemo } from 'react';
 import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
 import type { ProcessedRecord } from './useDataProcessor';
 import type { Action, Opportunity } from './useDataProcessor';
+import type { MatchedPedidoExport, GoalCompositionExport } from './useAnnualGoalMetrics';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
+
+export interface GoalMetricsResult {
+  metricas: GoalMetrics[];
+  goalComposition: GoalCompositionExport[];
+  matchedPedidos: MatchedPedidoExport[];
+}
 
 function norm(s: string): string {
   return (s || '')
