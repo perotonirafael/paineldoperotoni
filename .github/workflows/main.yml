@@ -1,34 +1,39 @@
 name: Deploy via ftp
 
-on: push
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
-
   deploy:
-
-    name: Deploy
-
+    name: Build e Deploy
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
 
-    - uses: actions/checkout@v2
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
 
+      - name: Instalar dependências
+        run: npm ci
 
+      - name: Gerar build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
 
-
-    - name: FTP Deploy Locaweb
-
-      uses: locaweb/ftp-deploy@1.0.0
-
-      with:
-
-        host: ${{ secrets.HOST }} 
-
-        user: ${{ secrets.USER }}
-
-        password: ${{ secrets.PASS }}
-
-        localDir: "./"
-
-        remoteDir: "./public_html/"
+      - name: FTP Deploy Locaweb
+        uses: locaweb/ftp-deploy@1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          user: ${{ secrets.USER }}
+          password: ${{ secrets.PASS }}
+          localDir: "./dist"
+          remoteDir: "./public_html/"
