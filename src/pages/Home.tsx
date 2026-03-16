@@ -58,8 +58,8 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
   const { processData: processDataWithWorker, processFiles: processFilesWithWorker, isProcessing: isWorkerProcessing, progress: workerProgress } = useWorkerDataProcessor();
   const { parseGoalsFile, parsePedidosFile } = useGoalProcessor();
   const { isPersistingUploads, persistFilesTemporarily } = useTemporaryUploadStorage();
-  const [workerResult, setWorkerResult] = useState<any>(null);
-  const [useWorkerOnly, setUseWorkerOnly] = useState(false);
+  const [workerResult, setWorkerResult] = useState<any>(publishedSnapshot?.workerResult || null);
+  const [useWorkerOnly, setUseWorkerOnly] = useState(!!publishedSnapshot);
   const [lightOpportunities, setLightOpportunities] = useState<Opportunity[]>([]);
   const [lightActions, setLightActions] = useState<Action[]>([]);
 
