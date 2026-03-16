@@ -19,6 +19,16 @@ jobs:
       - name: Instalar dependências
         run: bun install --frozen-lockfile
 
+      - name: Validar variáveis de build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || (echo "Secret VITE_SUPABASE_URL não configurado" && exit 1)
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || (echo "Secret VITE_SUPABASE_PUBLISHABLE_KEY não configurado" && exit 1)
+          test -n "$VITE_SUPABASE_PROJECT_ID" || (echo "Secret VITE_SUPABASE_PROJECT_ID não configurado" && exit 1)
+
       - name: Gerar build
         run: bun run build
         env:
