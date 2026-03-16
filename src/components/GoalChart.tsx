@@ -13,10 +13,13 @@ import { Target, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import type { GoalMetrics } from '@/types/goals';
+import type { MatchedPedidoExport, GoalCompositionExport } from '@/hooks/useAnnualGoalMetrics';
 
 interface GoalChartProps {
   metricas: GoalMetrics[];
   title?: string;
+  goalComposition?: GoalCompositionExport[];
+  matchedPedidos?: MatchedPedidoExport[];
 }
 
 const DETAIL_PAGE_SIZE = 15;
