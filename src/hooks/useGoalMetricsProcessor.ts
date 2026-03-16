@@ -355,6 +355,18 @@ export const useGoalMetricsProcessor = (
         const servico = pedido.servicoValorLiquido || 0;
         const recorrente = pedido.produtoValorManutencao || 0;
 
+        allMatchedPedidos.push({
+          numeroPedido: pedido.numeroPedido,
+          idOportunidade: pedido.idOportunidade,
+          proprietario: pedido.proprietarioOportunidade,
+          dataFechamento: pedido.dataFechamento,
+          mesFechamento: pedido.mesFechamento,
+          produtoModulo: pedido.produtoModulo,
+          valorLicenca: licenca,
+          valorServico: servico,
+          valorManutencao: recorrente,
+        });
+
         for (const etn of etns) {
           const real = etnRealizacao.get(etn);
           if (!real) continue;
