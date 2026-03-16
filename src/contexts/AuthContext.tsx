@@ -90,7 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (res.error) {
-      throw new Error(res.error.message || 'Erro ao fazer login');
+      const msg = res.error?.message || '';
+      if (msg.includes('Failed to send a request') || msg.includes('FunctionsFetchError')) {
+        throw new Error('Erro de conexão com o servidor. Tente novamente.');
+      }
+      throw new Error(msg || 'Erro ao fazer login');
     }
 
     const data = res.data;
