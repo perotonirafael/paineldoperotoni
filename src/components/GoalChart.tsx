@@ -34,37 +34,45 @@ const getColor = (percentage: number): string => {
   return '#ef4444';
 };
 
-export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
+export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalComposition = [], matchedPedidos = [] }) => {
   const [detailPage, setDetailPage] = useState(0);
 
   const handleExportXLSX = useCallback(() => {
     if (!metricas || metricas.length === 0) return;
     const wb = XLSX.utils.book_new();
 
-    const totalMetrica = metricas.find(m => m.etn === 'TOTAL');
-    const etnMetricas = metricas.filter(m => m.etn !== 'TOTAL');
-
-    // Resumo
-    if (totalMetrica) {
-      const pctLS = totalMetrica.metaLicencasServicos > 0
-        ? ((totalMetrica.realLicencasServicos / totalMetrica.metaLicencasServicos) * 100) : 0;
-      const pctR = totalMetrica.metaRecorrente > 0
-        ? ((totalMetrica.realRecorrente / totalMetrica.metaRecorrente) * 100) : 0;
-      const resumo = [
-        { Indicador: 'Meta Licenças + Serviços', Valor: totalMetrica.metaLicencasServicos },
-        { Indicador: 'Real Licenças + Serviços', Valor: totalMetrica.realLicencasServicos },
-        { Indicador: '  └ Real Licença', Valor: totalMetrica.realLicenca },
-        { Indicador: '  └ Real Serviço', Valor: totalMetrica.realServico },
-        { Indicador: '% Lic+Serv', Valor: Number(pctLS.toFixed(2)) },
-        { Indicador: 'Meta Manutenção / Recorrente', Valor: totalMetrica.metaRecorrente },
-        { Indicador: 'Real Manutenção / Recorrente', Valor: totalMetrica.realRecorrente },
-        { Indicador: '% Recorrente', Valor: Number(pctR.toFixed(2)) },
-        { Indicador: 'Atingimento Ponderado (%)', Valor: Number(totalMetrica.percentualAtingimento.toFixed(2)) },
-      ];
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
+    // Aba 1: Composição das Metas
+    if (goalComposition.length > 0) {
+      const metas = goalComposition.map(g => ({
+        Produto: g.produto,
+        Rubrica: g.rubrica,
+        Janeiro: g.janeiro, Fevereiro: g.fevereiro, Março: g.marco,
+        Abril: g.abril, Maio: g.maio, Junho: g.junho,
+        Julho: g.julho, Agosto: g.agosto, Setembro: g.setembro,
+        Outubro: g.outubro, Novembro: g.novembro, Dezembro: g.dezembro,
+        'Total Ano': g.totalAno,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metas), 'Composição Metas');
     }
 
-    // Detalhamento por ETN
+    // Aba 2: Pedidos Identificados
+    if (matchedPedidos.length > 0) {
+      const pedidos = matchedPedidos.map(p => ({
+        'Nº Pedido': p.numeroPedido,
+        'ID Oportunidade': p.idOportunidade,
+        Proprietário: p.proprietario,
+        'Data Fechamento': p.dataFechamento,
+        'Mês Fechamento': p.mesFechamento,
+        'Produto/Módulo': p.produtoModulo,
+        'Valor Licença': p.valorLicenca,
+        'Valor Serviço': p.valorServico,
+        'Valor Manutenção': p.valorManutencao,
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pedidos), 'Pedidos Identificados');
+    }
+
+    // Aba 3: Detalhamento por ETN
+    const etnMetricas = metricas.filter(m => m.etn !== 'TOTAL');
     const detalhe = etnMetricas
       .filter(m => m.realLicencasServicos > 0 || m.realRecorrente > 0)
       .sort((a, b) => (b.realLicencasServicos + b.realRecorrente) - (a.realLicencasServicos + a.realRecorrente))
@@ -81,7 +89,7 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
     }
 
     XLSX.writeFile(wb, `Atingimento_Metas_${title || 'export'}.xlsx`);
-  }, [metricas, title]);
+  }, [metricas, title, goalComposition, matchedPedidos]);
 
   if (!metricas || metricas.length === 0) {
     return (
