@@ -408,6 +408,7 @@ export const useGoalProcessor = () => {
       const colEtapa = resolveHeader(headers, ['ETAPA OPORTUNIDADE']);
       const colProp = resolveHeader(headers, ['PROPRIETARIO OPORTUNIDADE']);
       const colIdErp = resolveHeader(headers, ['ID ERP PROPRIETARIO']);
+      const colDataFechamento = resolveHeader(headers, ['DATA FECHAMENTO', 'DATA DE FECHAMENTO']);
       const colProduto = resolveHeader(headers, ['PRODUTO']);
       const colCodModulo = resolveHeader(headers, ['PRODUTO - CÓDIGO DO MÓDULO', 'PRODUTO - CODIGO DO MODULO']);
       const colModulo = resolveHeader(headers, ['PRODUTO - MODULO']);
@@ -427,9 +428,11 @@ export const useGoalProcessor = () => {
 
       console.log('[PEDIDOS] Mapeamento de colunas:', {
         colIdOpp,
+        colNumeroPedido,
         colEtapa,
         colProp,
         colIdErp,
+        colDataFechamento,
         colProduto,
       });
 
