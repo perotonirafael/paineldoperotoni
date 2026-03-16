@@ -296,6 +296,16 @@ export const useGoalMetricsProcessor = (
     console.log('[GOAL_METRICS] Pedidos by OPP ID (direct):', pedidoByOppId.size);
     console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
+    // Goal composition for export
+    const goalComposition: GoalCompositionExport[] = filteredGoals.map(g => ({
+      produto: g.produto, rubrica: g.rubrica,
+      janeiro: g.janeiro, fevereiro: g.fevereiro, marco: g.marco,
+      abril: g.abril, maio: g.maio, junho: g.junho,
+      julho: g.julho, agosto: g.agosto, setembro: g.setembro,
+      outubro: g.outubro, novembro: g.novembro, dezembro: g.dezembro,
+      totalAno: g.totalAno,
+    }));
+
     // 5) Pedidos linked via: oppId → Oportunidades.Pedido → Pedidos.NUMERO PEDIDO
     const etnRealizacao = new Map<string, { realLicenca: number; realServico: number; realRecorrente: number; oppIds: Set<string> }>();
     for (const etn of allEtns) {
@@ -304,6 +314,7 @@ export const useGoalMetricsProcessor = (
 
     let pedidosMatchCount = 0;
     let pedidosDateMismatchCount = 0;
+    const allMatchedPedidos: MatchedPedidoExport[] = [];
 
     const isPedidoWithinSelectedPeriod = (pedido: PedidoRecord) => {
       const monthMatch = months.includes(pedido.mesFechamento);
