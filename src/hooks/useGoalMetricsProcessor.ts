@@ -266,17 +266,26 @@ export const useGoalMetricsProcessor = (
 
     // Build a map of NUMERO PEDIDO → Pedido record for fast lookup
     const pedidoByNumero = new Map<string, PedidoRecord[]>();
+    // Build a map of ID OPORTUNIDADE → Pedido records for direct lookup (fallback path)
+    const pedidoByOppId = new Map<string, PedidoRecord[]>();
     for (const pedido of pedidos) {
       const num = (pedido.numeroPedido || '').trim();
-      if (!num) continue;
-      if (!pedidoByNumero.has(num)) pedidoByNumero.set(num, []);
-      pedidoByNumero.get(num)!.push(pedido);
+      if (num) {
+        if (!pedidoByNumero.has(num)) pedidoByNumero.set(num, []);
+        pedidoByNumero.get(num)!.push(pedido);
+      }
+      const oppId = (pedido.idOportunidade || '').trim();
+      if (oppId) {
+        if (!pedidoByOppId.has(oppId)) pedidoByOppId.set(oppId, []);
+        pedidoByOppId.get(oppId)!.push(pedido);
+      }
     }
 
     console.log('[GOAL_METRICS] OppIds with valid categories from goal users:', oppIdsWithValidCategory.size);
     console.log('[GOAL_METRICS] OppIds Fechada e Ganha:', oppIdsFechadaGanha.size);
     console.log('[GOAL_METRICS] OppId → Pedido nums mappings:', oppIdToPedidoNums.size);
     console.log('[GOAL_METRICS] Pedidos by NUMERO PEDIDO:', pedidoByNumero.size);
+    console.log('[GOAL_METRICS] Pedidos by OPP ID (direct):', pedidoByOppId.size);
     console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
     // 5) Pedidos linked via: oppId → Oportunidades.Pedido → Pedidos.NUMERO PEDIDO
@@ -295,36 +304,45 @@ export const useGoalMetricsProcessor = (
     };
 
     for (const oppId of oppIdsFechadaGanha) {
-      const pedidoNums = oppIdToPedidoNums.get(oppId);
-      if (!pedidoNums || pedidoNums.size === 0) continue;
-
       const etns = oppIdToEtn.get(oppId);
       if (!etns || etns.size === 0) continue;
       const divisor = etns.size;
 
-      for (const pedidoNum of pedidoNums) {
-        const matchedPedidos = pedidoByNumero.get(pedidoNum);
-        if (!matchedPedidos) continue;
+      // Strategy 1: oppId → Oportunidades.Pedido → Pedidos.NUMERO PEDIDO (raw dataset)
+      const pedidoNums = oppIdToPedidoNums.get(oppId);
+      let matchedPedidosList: PedidoRecord[] = [];
 
-        for (const pedido of matchedPedidos) {
-          if (!isPedidoWithinSelectedPeriod(pedido)) {
-            pedidosDateMismatchCount++;
-            continue;
-          }
+      if (pedidoNums && pedidoNums.size > 0) {
+        for (const pedidoNum of pedidoNums) {
+          const found = pedidoByNumero.get(pedidoNum);
+          if (found) matchedPedidosList.push(...found);
+        }
+      }
 
-          pedidosMatchCount++;
-          const licenca = pedido.produtoValorLicenca || 0;
-          const servico = pedido.servicoValorLiquido || 0;
-          const recorrente = pedido.produtoValorManutencao || 0;
+      // Strategy 2 (fallback): oppId → Pedidos.idOportunidade (direct match)
+      if (matchedPedidosList.length === 0) {
+        const directMatch = pedidoByOppId.get(oppId);
+        if (directMatch) matchedPedidosList = directMatch;
+      }
 
-          for (const etn of etns) {
-            const real = etnRealizacao.get(etn);
-            if (!real) continue;
-            real.realLicenca += licenca / divisor;
-            real.realServico += servico / divisor;
-            real.realRecorrente += recorrente / divisor;
-            real.oppIds.add(oppId);
-          }
+      for (const pedido of matchedPedidosList) {
+        if (!isPedidoWithinSelectedPeriod(pedido)) {
+          pedidosDateMismatchCount++;
+          continue;
+        }
+
+        pedidosMatchCount++;
+        const licenca = pedido.produtoValorLicenca || 0;
+        const servico = pedido.servicoValorLiquido || 0;
+        const recorrente = pedido.produtoValorManutencao || 0;
+
+        for (const etn of etns) {
+          const real = etnRealizacao.get(etn);
+          if (!real) continue;
+          real.realLicenca += licenca / divisor;
+          real.realServico += servico / divisor;
+          real.realRecorrente += recorrente / divisor;
+          real.oppIds.add(oppId);
         }
       }
     }
