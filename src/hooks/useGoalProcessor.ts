@@ -322,6 +322,7 @@ export const useGoalProcessor = () => {
       console.log('[PEDIDOS] Headers detectados:', headers.slice(0, 20).join(' | '));
 
       const colIdOpp = resolveHeader(headers, ['ID OPORTUNIDADE']);
+      const colNumeroPedido = resolveHeader(headers, ['NUMERO PEDIDO', 'NÚMERO PEDIDO', 'NUM PEDIDO']);
       const colEtapa = resolveHeader(headers, ['ETAPA OPORTUNIDADE']);
       const colProp = resolveHeader(headers, ['PROPRIETARIO OPORTUNIDADE']);
       const colIdErp = resolveHeader(headers, ['ID ERP PROPRIETARIO']);
