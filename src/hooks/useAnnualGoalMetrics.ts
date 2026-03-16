@@ -301,5 +301,5 @@ export const useAnnualGoalMetrics = (
       percentualAtingimento: pctLS * 0.5 + pctR * 0.5,
       monthlyData,
     };
-  }, [goals, pedidos, actions, opportunities, selectedYear]);
+  }, [goals, pedidos, actions, opportunities, processedData, selectedYear]);
 };
