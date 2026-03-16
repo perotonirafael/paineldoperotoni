@@ -266,17 +266,26 @@ export const useGoalMetricsProcessor = (
 
     // Build a map of NUMERO PEDIDO → Pedido record for fast lookup
     const pedidoByNumero = new Map<string, PedidoRecord[]>();
+    // Build a map of ID OPORTUNIDADE → Pedido records for direct lookup (fallback path)
+    const pedidoByOppId = new Map<string, PedidoRecord[]>();
     for (const pedido of pedidos) {
       const num = (pedido.numeroPedido || '').trim();
-      if (!num) continue;
-      if (!pedidoByNumero.has(num)) pedidoByNumero.set(num, []);
-      pedidoByNumero.get(num)!.push(pedido);
+      if (num) {
+        if (!pedidoByNumero.has(num)) pedidoByNumero.set(num, []);
+        pedidoByNumero.get(num)!.push(pedido);
+      }
+      const oppId = (pedido.idOportunidade || '').trim();
+      if (oppId) {
+        if (!pedidoByOppId.has(oppId)) pedidoByOppId.set(oppId, []);
+        pedidoByOppId.get(oppId)!.push(pedido);
+      }
     }
 
     console.log('[GOAL_METRICS] OppIds with valid categories from goal users:', oppIdsWithValidCategory.size);
     console.log('[GOAL_METRICS] OppIds Fechada e Ganha:', oppIdsFechadaGanha.size);
     console.log('[GOAL_METRICS] OppId → Pedido nums mappings:', oppIdToPedidoNums.size);
     console.log('[GOAL_METRICS] Pedidos by NUMERO PEDIDO:', pedidoByNumero.size);
+    console.log('[GOAL_METRICS] Pedidos by OPP ID (direct):', pedidoByOppId.size);
     console.log('[GOAL_METRICS] ETNs para cálculo:', Array.from(allEtns));
 
     // 5) Pedidos linked via: oppId → Oportunidades.Pedido → Pedidos.NUMERO PEDIDO
