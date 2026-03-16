@@ -162,6 +162,10 @@ export function useDataProcessor(opportunities: Opportunity[], actions: Action[]
             contaMap.get(contaId)!.add(oppId);
           }
 
+          const actionUserId = userActions
+            .map((a) => trim(a['Id Usuário ERP']) || trim(a['Id Usuario ERP']) || trim(a['ID USUARIO ERP']) || trim(a['ID USUÁRIO ERP']))
+            .find(Boolean) || '';
+
           const catCount = new Map<string, number>();
           const actCount = new Map<string, number>();
           for (const a of userActions) {
@@ -178,6 +182,7 @@ export function useDataProcessor(opportunities: Opportunity[], actions: Action[]
             representante: trim(opp['Representante']),
             responsavel: trim(opp['Responsável']),
             etn: user,
+            actionUserId,
             etapa: trim(opp['Etapa']),
             probabilidade: prob.str,
             probNum: prob.num,
