@@ -1,18 +1,43 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const ALLOWED_ORIGINS = [
+const EXACT_ALLOWED_ORIGINS = [
   'http://perotoni.comercial.ws',
   'https://perotoni.comercial.ws',
   'https://paineldoperotoni.lovable.app',
 ]
 
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/.*\.lovableproject\.com$/,
+  /^https:\/\/.*\.lovable\.app$/,
+  /^http:\/\/localhost(?::\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(?::\d+)?$/,
+]
+
+function resolveAllowedOrigin(origin: string) {
+  if (!origin) {
+    return EXACT_ALLOWED_ORIGINS[0]
+  }
+
+  if (EXACT_ALLOWED_ORIGINS.includes(origin)) {
+    return origin
+  }
+
+  if (ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin))) {
+    return origin
+  }
+
+  return EXACT_ALLOWED_ORIGINS[0]
+}
+
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || ''
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  const allowedOrigin = resolveAllowedOrigin(origin)
+
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
   }
 }
 
@@ -20,7 +45,7 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -38,7 +63,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Look up email by username using service role (bypasses RLS)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('email, is_active')
@@ -46,7 +70,6 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || !profile) {
-      // Generic error to prevent username enumeration
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -67,7 +90,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Sign in with email/password using anon key
     const supabaseAnon = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!
@@ -92,7 +114,7 @@ Deno.serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (err) {
+  } catch (_err) {
     return new Response(
       JSON.stringify({ error: 'Erro interno do servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
