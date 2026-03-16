@@ -251,15 +251,19 @@ export const useGoalProcessor = () => {
       let targetSheetName: string | null = null;
       let headers: string[] = [];
 
+      // Strategy 1: find sheet with all 3 required columns
       for (const sheetName of workbook.SheetNames) {
         const ws = workbook.Sheets[sheetName];
         const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true }) as any[][];
         if (!matrix || matrix.length < 2) continue;
 
         const headerRow = (matrix[0] || []).map((h) => cleanHeaderName(String(h ?? '')));
+        console.log('[METAS] Verificando sheet:', sheetName, 'Headers:', headerRow.slice(0, 10));
         const hasProduto = !!findHeaderByCandidates(headerRow, ['Produto']);
-        const hasIdUsuario = !!findHeaderByCandidates(headerRow, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
+        const hasIdUsuario = !!findHeaderByCandidates(headerRow, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP', 'Id Usuário', 'Id Usuario']);
         const hasRubrica = !!findHeaderByCandidates(headerRow, ['Rubrica']);
+
+        console.log('[METAS] Match:', { sheetName, hasProduto, hasIdUsuario, hasRubrica });
 
         if (hasProduto && hasIdUsuario && hasRubrica) {
           targetSheetName = sheetName;
@@ -268,8 +272,26 @@ export const useGoalProcessor = () => {
         }
       }
 
+      // Strategy 2: find sheet with month columns (Janeiro, Fevereiro, etc.)
       if (!targetSheetName) {
-        // Fallback: primeira planilha
+        for (const sheetName of workbook.SheetNames) {
+          const ws = workbook.Sheets[sheetName];
+          const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true }) as any[][];
+          if (!matrix || matrix.length < 2) continue;
+
+          const headerRow = (matrix[0] || []).map((h) => cleanHeaderName(String(h ?? '')));
+          const hasMonths = !!findHeaderByCandidates(headerRow, ['Janeiro']) && !!findHeaderByCandidates(headerRow, ['Março', 'Marco']);
+          if (hasMonths && headerRow.length >= 5) {
+            console.log('[METAS] Fallback: sheet com meses encontrada:', sheetName);
+            targetSheetName = sheetName;
+            headers = headerRow;
+            break;
+          }
+        }
+      }
+
+      if (!targetSheetName) {
+        // Fallback final: primeira planilha
         targetSheetName = workbook.SheetNames[0];
         const ws = workbook.Sheets[targetSheetName];
         const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true }) as any[][];
