@@ -59,8 +59,9 @@ export const useGoalMetricsProcessor = (
   selectedPeriod: string,
   actions: Action[],
   opportunities: Opportunity[],
-) => {
-  const metricas = useMemo((): GoalMetrics[] => {
+): GoalMetricsResult => {
+  return useMemo((): GoalMetricsResult => {
+    const emptyResult: GoalMetricsResult = { metricas: [], goalComposition: [], matchedPedidos: [] };
     const periodToMonths: Record<string, string[]> = {
       Janeiro: ['Janeiro'],
       Fevereiro: ['Fevereiro'],
