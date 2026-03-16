@@ -202,16 +202,16 @@ export const useGoalMetricsProcessor = (
         }
       }
     } else {
-      // Fallback for cached/processed data - match by ETN name
-      const goalNameSet = new Set(Array.from(goalUserNames.values()).map(n => norm(n)));
+      // Fallback for cached/processed data - match by action user ERP ID captured in processedData
       for (const record of processedData) {
         if (!record.oppId) continue;
         if (!isEligibleCommitmentCategory(record.categoriaCompromisso || '')) continue;
 
+        const actionUserId = String(record.actionUserId || '').trim();
+        if (!actionUserId || !goalUserIds.has(actionUserId)) continue;
+
         const etn = record.etn && record.etn !== 'Sem Agenda' ? record.etn : record.responsavel;
         if (!etn) continue;
-        // STRICT: only if ETN matches a goal user name
-        if (!goalNameSet.has(norm(etn))) continue;
 
         oppIdsWithValidCategory.add(record.oppId);
         if (!oppIdToEtn.has(record.oppId)) oppIdToEtn.set(record.oppId, new Set());
