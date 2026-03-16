@@ -273,6 +273,10 @@ function processData(opportunities: any[], actions: any[]) {
 
         }
 
+        const actionUserId = userActions
+          .map((a) => trim(a['Id Usuário ERP']) || trim(a['Id Usuario ERP']) || trim(a['ID USUARIO ERP']) || trim(a['ID USUÁRIO ERP']))
+          .find(Boolean) || '';
+
         const catCount = new Map<string, number>();
         const actCount = new Map<string, number>();
         let maxReconhecimento = 0;
@@ -304,6 +308,7 @@ function processData(opportunities: any[], actions: any[]) {
           representante,
           responsavel,
           etn: user,
+          actionUserId,
           etapa,
           probabilidade: prob.str,
           probNum: prob.num,
@@ -338,6 +343,7 @@ function processData(opportunities: any[], actions: any[]) {
         representante,
         responsavel,
         etn: 'Sem Agenda',
+        actionUserId: '',
         etapa,
         probabilidade: prob.str,
         probNum: prob.num,

@@ -40,6 +40,11 @@ function getField(row: Record<string, any>, key?: string): string {
   return value === undefined || value === null ? '' : String(value).trim();
 }
 
+function normalizeYear(value: unknown): string {
+  const digits = String(value ?? '').replace(/[^0-9]/g, '');
+  return digits.length === 4 ? digits : '';
+}
+
 export const useGoalMetricsProcessor = (
   goals: GoalRecord[],
   pedidos: PedidoRecord[],
@@ -69,7 +74,8 @@ export const useGoalMetricsProcessor = (
     };
 
     const months = periodToMonths[selectedPeriod] || [];
-    console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goals: goals.length, pedidos: pedidos.length });
+    const goalYears = new Set(goals.map((g) => normalizeYear(g.ano)).filter(Boolean));
+    console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goalYears: Array.from(goalYears), goals: goals.length, pedidos: pedidos.length });
     if (!months.length || !goals.length) {
       console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', goals.length);
       return [];
@@ -93,7 +99,7 @@ export const useGoalMetricsProcessor = (
     const goalUserIds = new Set(goals.map((g) => g.idUsuario));
     console.log('[GOAL_METRICS] Goal user IDs:', Array.from(goalUserIds));
 
-    // 1) Map user ERP ID → Name (only from data, NO hardcoded names)
+    // 1) Map user ERP ID → Name (only from raw data when available)
     const userIdToName = new Map<string, string>();
 
     if (useRawDataset) {
@@ -114,7 +120,6 @@ export const useGoalMetricsProcessor = (
       }
     }
 
-    // Resolve goal user names from actual data only
     const goalUserNames = new Map<string, string>();
     for (const userId of goalUserIds) {
       const mapped = userIdToName.get(userId);
@@ -126,9 +131,8 @@ export const useGoalMetricsProcessor = (
     console.log('[GOAL_METRICS] User ID → Name mapping:', Object.fromEntries(userIdToName));
     console.log('[GOAL_METRICS] Goal users resolved:', Object.fromEntries(goalUserNames));
 
-    // If no goal user could be resolved, we can't do the cross-reference
-    if (goalUserNames.size === 0) {
-      console.log('[GOAL_METRICS] No goal users could be resolved from data. Returning empty metrics.');
+    if (useRawDataset && goalUserNames.size === 0) {
+      console.log('[GOAL_METRICS] No goal users could be resolved from raw data. Returning empty metrics.');
       return [];
     }
 
@@ -198,16 +202,16 @@ export const useGoalMetricsProcessor = (
         }
       }
     } else {
-      // Fallback for cached/processed data - match by ETN name
-      const goalNameSet = new Set(Array.from(goalUserNames.values()).map(n => norm(n)));
+      // Fallback for cached/processed data - match by action user ERP ID captured in processedData
       for (const record of processedData) {
         if (!record.oppId) continue;
         if (!isEligibleCommitmentCategory(record.categoriaCompromisso || '')) continue;
 
+        const actionUserId = String(record.actionUserId || '').trim();
+        if (!actionUserId || !goalUserIds.has(actionUserId)) continue;
+
         const etn = record.etn && record.etn !== 'Sem Agenda' ? record.etn : record.responsavel;
         if (!etn) continue;
-        // STRICT: only if ETN matches a goal user name
-        if (!goalNameSet.has(norm(etn))) continue;
 
         oppIdsWithValidCategory.add(record.oppId);
         if (!oppIdToEtn.has(record.oppId)) oppIdToEtn.set(record.oppId, new Set());
@@ -254,6 +258,9 @@ export const useGoalMetricsProcessor = (
     for (const [, goalName] of goalUserNames) {
       allEtns.add(goalName);
     }
+    for (const etns of oppIdToEtn.values()) {
+      for (const etn of etns) allEtns.add(etn);
+    }
 
     if (allEtns.size === 0) allEtns.add('TOTAL');
 
@@ -279,6 +286,13 @@ export const useGoalMetricsProcessor = (
     }
 
     let pedidosMatchCount = 0;
+    let pedidosDateMismatchCount = 0;
+
+    const isPedidoWithinSelectedPeriod = (pedido: PedidoRecord) => {
+      const monthMatch = months.includes(pedido.mesFechamento);
+      const yearMatch = goalYears.size === 0 || goalYears.has(pedido.anoFechamento);
+      return monthMatch && yearMatch;
+    };
 
     for (const oppId of oppIdsFechadaGanha) {
       const pedidoNums = oppIdToPedidoNums.get(oppId);
@@ -293,6 +307,11 @@ export const useGoalMetricsProcessor = (
         if (!matchedPedidos) continue;
 
         for (const pedido of matchedPedidos) {
+          if (!isPedidoWithinSelectedPeriod(pedido)) {
+            pedidosDateMismatchCount++;
+            continue;
+          }
+
           pedidosMatchCount++;
           const licenca = pedido.produtoValorLicenca || 0;
           const servico = pedido.servicoValorLiquido || 0;
@@ -365,7 +384,7 @@ export const useGoalMetricsProcessor = (
       percentualAtingimento: percentualLicTotal * 0.5 + percentualRecTotal * 0.5,
     };
 
-    console.log(`[GOAL_METRICS] Pedidos matched: ${pedidosMatchCount} of ${pedidos.length}`);
+    console.log(`[GOAL_METRICS] Pedidos matched in selected period/year: ${pedidosMatchCount} of ${pedidos.length} (ignored by date=${pedidosDateMismatchCount})`);
     console.log(`[GOAL_METRICS] TOTAL: realLicenca=${totalRealLicenca} realServico=${totalRealServico} realRecorrente=${totalRealRecorrente} atingimento=${totalMetric.percentualAtingimento.toFixed(1)}%`);
 
     for (const [goalUserId, goalName] of goalUserNames.entries()) {

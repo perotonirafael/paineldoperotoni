@@ -40,6 +40,85 @@ const parseBR = (v: string | undefined): number => {
   return isNaN(num) ? 0 : num;
 };
 
+const MONTH_NAMES: Record<number, string> = {
+  1: 'Janeiro',
+  2: 'Fevereiro',
+  3: 'Março',
+  4: 'Abril',
+  5: 'Maio',
+  6: 'Junho',
+  7: 'Julho',
+  8: 'Agosto',
+  9: 'Setembro',
+  10: 'Outubro',
+  11: 'Novembro',
+  12: 'Dezembro',
+};
+
+function normalizeYearValue(value: any): string {
+  const digits = String(value ?? '').replace(/[^0-9]/g, '');
+  return digits.length === 4 ? digits : '';
+}
+
+function parseSpreadsheetDate(value: any): { raw: string; month: string; year: string; monthNum: number } {
+  if (value === undefined || value === null || value === '') {
+    return { raw: '', month: '', year: '', monthNum: 0 };
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const monthNum = value.getMonth() + 1;
+    return {
+      raw: value.toISOString(),
+      month: MONTH_NAMES[monthNum] || '',
+      year: String(value.getFullYear()),
+      monthNum,
+    };
+  }
+
+  if (typeof value === 'number' && value > 1 && value < 100000) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(excelEpoch.getTime() + value * 86400000);
+    const monthNum = date.getUTCMonth() + 1;
+    return {
+      raw: date.toISOString(),
+      month: MONTH_NAMES[monthNum] || '',
+      year: String(date.getUTCFullYear()),
+      monthNum,
+    };
+  }
+
+  const raw = String(value).trim();
+  const normalized = raw.replace(/^"|"$/g, '');
+  const parts = normalized.match(/(\d{1,4})\D(\d{1,2})\D(\d{2,4})/);
+
+  if (parts) {
+    let day = parseInt(parts[1], 10);
+    let monthNum = parseInt(parts[2], 10);
+    let year = parts[3];
+
+    if (parts[1].length === 4) {
+      year = parts[1];
+      monthNum = parseInt(parts[2], 10);
+      day = parseInt(parts[3], 10);
+    }
+
+    if (year.length === 2) {
+      year = `${parseInt(year, 10) >= 70 ? '19' : '20'}${year}`;
+    }
+
+    if (monthNum >= 1 && monthNum <= 12) {
+      return {
+        raw: normalized,
+        month: MONTH_NAMES[monthNum] || '',
+        year,
+        monthNum,
+      };
+    }
+  }
+
+  return { raw: normalized, month: '', year: '', monthNum: 0 };
+}
+
 async function yieldToMainThread() {
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
@@ -215,6 +294,7 @@ export const useGoalProcessor = () => {
       const colProduto = resolveHeader(headers, ['Produto']);
       const colIdUsuario = resolveHeader(headers, ['ID Usuário', 'ID Usuário ERP', 'ID Usuario', 'ID Usuario ERP']);
       const colRubrica = resolveHeader(headers, ['Rubrica']);
+      const colAno = resolveHeader(headers, ['Ano']);
       const colJaneiro = resolveHeader(headers, ['Janeiro']);
       const colFevereiro = resolveHeader(headers, ['Fevereiro']);
       const colMarco = resolveHeader(headers, ['Março', 'Marco']);
@@ -232,6 +312,7 @@ export const useGoalProcessor = () => {
       const idxProduto = headers.indexOf(colProduto);
       const idxIdUsuario = headers.indexOf(colIdUsuario);
       const idxRubrica = headers.indexOf(colRubrica);
+      const idxAno = headers.indexOf(colAno);
       const idxJaneiro = headers.indexOf(colJaneiro);
       const idxFevereiro = headers.indexOf(colFevereiro);
       const idxMarco = headers.indexOf(colMarco);
@@ -271,6 +352,7 @@ export const useGoalProcessor = () => {
           produto,
           idUsuario,
           rubrica: String(row[idxRubrica] ?? '').trim(),
+          ano: idxAno >= 0 ? normalizeYearValue(row[idxAno]) : '',
           janeiro: getVal(idxJaneiro),
           fevereiro: getVal(idxFevereiro),
           marco: getVal(idxMarco),
@@ -326,6 +408,7 @@ export const useGoalProcessor = () => {
       const colEtapa = resolveHeader(headers, ['ETAPA OPORTUNIDADE']);
       const colProp = resolveHeader(headers, ['PROPRIETARIO OPORTUNIDADE']);
       const colIdErp = resolveHeader(headers, ['ID ERP PROPRIETARIO']);
+      const colDataFechamento = resolveHeader(headers, ['DATA FECHAMENTO', 'DATA DE FECHAMENTO']);
       const colProduto = resolveHeader(headers, ['PRODUTO']);
       const colCodModulo = resolveHeader(headers, ['PRODUTO - CÓDIGO DO MÓDULO', 'PRODUTO - CODIGO DO MODULO']);
       const colModulo = resolveHeader(headers, ['PRODUTO - MODULO']);
@@ -345,9 +428,11 @@ export const useGoalProcessor = () => {
 
       console.log('[PEDIDOS] Mapeamento de colunas:', {
         colIdOpp,
+        colNumeroPedido,
         colEtapa,
         colProp,
         colIdErp,
+        colDataFechamento,
         colProduto,
       });
 
@@ -356,12 +441,18 @@ export const useGoalProcessor = () => {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
 
+        const fechamento = parseSpreadsheetDate(row[colDataFechamento]);
+
         const pedido: PedidoRecord = {
           idOportunidade: row[colIdOpp] || '',
           numeroPedido: row[colNumeroPedido] || '',
           idEtapaOportunidade: row[colEtapa] || '',
           proprietarioOportunidade: row[colProp] || '',
           idErpProprietario: row[colIdErp] || '',
+          dataFechamento: fechamento.raw,
+          anoFechamento: fechamento.year,
+          mesFechamento: fechamento.month,
+          mesFechamentoNum: fechamento.monthNum,
           produto: row[colProduto] || '',
           produtoCodigoModulo: row[colCodModulo] || '',
           produtoModulo: row[colModulo] || '',
