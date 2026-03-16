@@ -37,7 +37,45 @@ const getColor = (percentage: number): string => {
   return '#ef4444';
 };
 
-export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalComposition = [], matchedPedidos = [] }) => {
+const PERIOD_MONTHS: Record<string, string[]> = {
+  Janeiro: ['Janeiro'], Fevereiro: ['Fevereiro'], Março: ['Março'],
+  '1ºTrimestre': ['Janeiro', 'Fevereiro', 'Março'],
+  Abril: ['Abril'], Maio: ['Maio'], Junho: ['Junho'],
+  '2ºTrimestre': ['Abril', 'Maio', 'Junho'],
+  Julho: ['Julho'], Agosto: ['Agosto'], Setembro: ['Setembro'],
+  '3ºTrimestre': ['Julho', 'Agosto', 'Setembro'],
+  Outubro: ['Outubro'], Novembro: ['Novembro'], Dezembro: ['Dezembro'],
+  '4ºTrimestre': ['Outubro', 'Novembro', 'Dezembro'],
+};
+
+const pedidoToExportRow = (p: PedidoRecord) => ({
+  'Nº Pedido': p.numeroPedido,
+  'ID Oportunidade': p.idOportunidade,
+  'Etapa': p.idEtapaOportunidade,
+  Proprietário: p.proprietarioOportunidade,
+  'ID ERP Proprietário': p.idErpProprietario,
+  'Data Fechamento': p.dataFechamento,
+  'Ano Fechamento': p.anoFechamento,
+  'Mês Fechamento': p.mesFechamento,
+  Produto: p.produto,
+  'Código Módulo': p.produtoCodigoModulo,
+  'Produto/Módulo': p.produtoModulo,
+  'Valor Licença': p.produtoValorLicenca || 0,
+  'Valor Licença Canal': p.produtoValorLicencaCanal || 0,
+  'Valor Manutenção': p.produtoValorManutencao || 0,
+  'Valor Manutenção Canal': p.produtoValorManutencaoCanal || 0,
+  Serviço: p.servico,
+  'Tipo Faturamento': p.servicoTipoDeFaturamento,
+  'Qtde Horas': p.servicoQtdeDeHoras || 0,
+  'Valor Hora': p.servicoValorHora || 0,
+  'Valor Bruto': p.servicoValorBruto || 0,
+  'Valor Over': p.servicoValorOver || 0,
+  'Valor Desconto': p.servicoValorDesconto || 0,
+  'Valor Canal': p.servicoValorCanal || 0,
+  'Valor Líquido Serviço': p.servicoValorLiquido || 0,
+});
+
+export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title, goalComposition = [], matchedPedidos = [], allPedidos = [], selectedPeriod = '' }) => {
   const [detailPage, setDetailPage] = useState(0);
 
   const handleExportXLSX = useCallback(() => {
