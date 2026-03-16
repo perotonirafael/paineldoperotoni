@@ -14,12 +14,15 @@ import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import type { GoalMetrics } from '@/types/goals';
 import type { MatchedPedidoExport, GoalCompositionExport } from '@/hooks/useAnnualGoalMetrics';
+import type { PedidoRecord } from '@/types/goals';
 
 interface GoalChartProps {
   metricas: GoalMetrics[];
   title?: string;
   goalComposition?: GoalCompositionExport[];
   matchedPedidos?: MatchedPedidoExport[];
+  allPedidos?: PedidoRecord[];
+  selectedPeriod?: string;
 }
 
 const DETAIL_PAGE_SIZE = 15;

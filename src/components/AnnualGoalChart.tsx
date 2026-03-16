@@ -7,10 +7,12 @@ import { TrendingUp, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import type { AnnualGoalResult } from '@/hooks/useAnnualGoalMetrics';
+import type { PedidoRecord } from '@/types/goals';
 
 interface AnnualGoalChartProps {
   data: AnnualGoalResult | null;
   year?: string;
+  allPedidos?: PedidoRecord[];
 }
 
 const formatCurrency = (v: number) =>
