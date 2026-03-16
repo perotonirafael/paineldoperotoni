@@ -352,6 +352,7 @@ export const useGoalProcessor = () => {
           produto,
           idUsuario,
           rubrica: String(row[idxRubrica] ?? '').trim(),
+          ano: idxAno >= 0 ? normalizeYearValue(row[idxAno]) : '',
           janeiro: getVal(idxJaneiro),
           fevereiro: getVal(idxFevereiro),
           marco: getVal(idxMarco),
