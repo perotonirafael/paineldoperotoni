@@ -30,6 +30,7 @@ function resolveColumns(rows: Record<string, any>[], type: 'actions' | 'opportun
     stage: findHeaderByCandidates(headers, ['Etapa']),
     responsible: findHeaderByCandidates(headers, ['Responsável', 'Responsavel', 'PROPRIETARIO OPORTUNIDADE']),
     userId: findHeaderByCandidates(headers, ['Id ERP Usuário', 'Id ERP Usuario', 'ID ERP PROPRIETARIO']),
+    pedido: findHeaderByCandidates(headers, ['Pedido']),
   };
 }
 
