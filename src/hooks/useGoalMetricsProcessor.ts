@@ -40,6 +40,11 @@ function getField(row: Record<string, any>, key?: string): string {
   return value === undefined || value === null ? '' : String(value).trim();
 }
 
+function normalizeYear(value: unknown): string {
+  const digits = String(value ?? '').replace(/[^0-9]/g, '');
+  return digits.length === 4 ? digits : '';
+}
+
 export const useGoalMetricsProcessor = (
   goals: GoalRecord[],
   pedidos: PedidoRecord[],

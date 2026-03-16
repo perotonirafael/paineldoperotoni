@@ -11,6 +11,7 @@ export interface ProcessedRecord {
   representante: string;
   responsavel: string;
   etn: string;
+  actionUserId: string;
   etapa: string;
   probabilidade: string;
   probNum: number;
