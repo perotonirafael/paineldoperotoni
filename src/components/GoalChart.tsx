@@ -120,8 +120,13 @@ export const GoalChart: React.FC<GoalChartProps> = ({ metricas, title }) => {
 
   return (
     <div className="w-full space-y-6">
-      {title && <h3 className="text-lg font-bold text-foreground">{title}</h3>}
-
+      <div className="flex items-center justify-between">
+        {title && <h3 className="text-lg font-bold text-foreground">{title}</h3>}
+        <Button variant="outline" size="sm" onClick={handleExportXLSX} className="gap-2">
+          <Download size={14} />
+          Exportar XLSX
+        </Button>
+      </div>
       {/* Resumo TOTAL */}
       {totalMetrica && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
