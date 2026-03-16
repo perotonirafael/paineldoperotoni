@@ -141,7 +141,7 @@ export const useGoalMetricsProcessor = (
 
     if (useRawDataset && goalUserNames.size === 0) {
       console.log('[GOAL_METRICS] No goal users could be resolved from raw data. Returning empty metrics.');
-      return [];
+      return emptyResult;
     }
 
     // 2) Metas do período
