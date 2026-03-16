@@ -25,6 +25,7 @@ export interface GoalRecord {
 
 export interface PedidoRecord {
   idOportunidade: string;
+  numeroPedido: string;
   idEtapaOportunidade: string;
   proprietarioOportunidade: string;
   idErpProprietario: string;
