@@ -59,6 +59,7 @@ export const useGoalMetricsProcessor = (
   selectedPeriod: string,
   actions: Action[],
   opportunities: Opportunity[],
+  selectedYear?: string,
 ): GoalMetricsResult => {
   return useMemo((): GoalMetricsResult => {
     const emptyResult: GoalMetricsResult = { metricas: [], goalComposition: [], matchedPedidos: [] };
