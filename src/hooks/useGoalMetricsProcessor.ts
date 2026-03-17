@@ -151,8 +151,8 @@ export const useGoalMetricsProcessor = (
     }
 
     // 2) Metas do período
-    const hasTotalGestao = goals.some((g) => norm(g.produto).includes('total'));
-    const filteredGoals = hasTotalGestao ? goals.filter((g) => norm(g.produto).includes('total')) : goals;
+    const hasTotalGestao = yearFilteredGoals.some((g) => norm(g.produto).includes('total'));
+    const filteredGoals = hasTotalGestao ? yearFilteredGoals.filter((g) => norm(g.produto).includes('total')) : yearFilteredGoals;
 
     let metaTotalLicencasServicos = 0;
     let metaTotalRecorrente = 0;
