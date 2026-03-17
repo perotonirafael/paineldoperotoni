@@ -40,7 +40,7 @@ export function AppLayout() {
                     {batchInfo.createdByName ? ` por ${batchInfo.createdByName}` : ''}
                   </span>
                 ) : (
-                  <span className="bg-amber-500/30 px-2 py-0.5 rounded-full">
+                  <span className="bg-amber-500/30 px-2 py-0.5 rounded-full w-fit">
                     Nenhuma base publicada até o momento.
                   </span>
                 )}
