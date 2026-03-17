@@ -5,8 +5,9 @@ import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
 import { useGoalProcessor } from '@/hooks/useGoalProcessor';
 import {
   Upload, FileText, Target, DollarSign, Loader, CheckCircle,
-  XCircle, Clock, AlertCircle, Database, RefreshCw
+  XCircle, Clock, AlertCircle, Database, RefreshCw, Download
 } from 'lucide-react';
+import { generateGoalTemplate } from '@/utils/generateGoalTemplate';
 
 interface BatchRecord {
   id: string;
