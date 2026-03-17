@@ -488,5 +488,5 @@ export const useGoalMetricsProcessor = (
     }
 
     return { metricas: [totalMetric, ...etnResults], goalComposition, matchedPedidos: allMatchedPedidos };
-  }, [goals, pedidos, processedData, selectedPeriod, actions, opportunities]);
+  }, [goals, pedidos, processedData, selectedPeriod, actions, opportunities, selectedYear]);
 };

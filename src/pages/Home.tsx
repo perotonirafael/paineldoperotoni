@@ -202,7 +202,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
     });
   }, [processedData, selYears, selMonths, selReps, selResp, selETN, selStages, selProbs, selAgenda, selAccounts, selTypes, selSubtipos]);
 
-  const goalMetricasResult = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities);
+  const goalMetricasResult = useGoalMetricsProcessor(goals, pedidos, filteredData.length > 0 ? filteredData : processedData, selectedPeriod, actions, opportunities, selectedGoalYear);
   const goalMetricas = goalMetricasResult.metricas;
   const selectedGoalYear = selYears.length === 1 ? selYears[0] : undefined;
   const annualGoalData = useAnnualGoalMetrics(goals, pedidos, actions, opportunities, processedData, selectedGoalYear);
