@@ -316,6 +316,11 @@ export const useAnnualGoalMetrics = (
         if ((hasLicenca || hasManutencao) && !hasServico) continue;
         if (!hasServico) continue;
 
+        pedidosMatched++;
+        monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);
+        monthlyRealServico[monthIdx] += (pedido.servicoValorLiquido || 0);
+        monthlyRealRecorrente[monthIdx] += (pedido.produtoValorManutencao || 0);
+
         allMatchedPedidos.push({
           numeroPedido: pedido.numeroPedido,
           idOportunidade: pedido.idOportunidade,
