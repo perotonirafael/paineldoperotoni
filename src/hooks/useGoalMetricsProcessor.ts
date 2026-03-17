@@ -110,7 +110,7 @@ export const useGoalMetricsProcessor = (
     });
 
     // 0) Collect goal user IDs
-    const goalUserIds = new Set(goals.map((g) => g.idUsuario));
+    const goalUserIds = new Set(yearFilteredGoals.map((g) => g.idUsuario));
     console.log('[GOAL_METRICS] Goal user IDs:', Array.from(goalUserIds));
 
     // 1) Map user ERP ID → Name (only from raw data when available)
