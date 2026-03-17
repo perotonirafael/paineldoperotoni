@@ -370,6 +370,9 @@ export const useGoalMetricsProcessor = (
           continue;
         }
 
+        // BLOCO 5: Skip pedidos with only license/maintenance, no services
+        if (!isPedidoEligible(pedido)) continue;
+
         pedidosMatchCount++;
         const licenca = pedido.produtoValorLicenca || 0;
         const servico = pedido.servicoValorLiquido || 0;
