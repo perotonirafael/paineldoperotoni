@@ -5,8 +5,9 @@ import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
 import { useGoalProcessor } from '@/hooks/useGoalProcessor';
 import {
   Upload, FileText, Target, DollarSign, Loader, CheckCircle,
-  XCircle, Clock, AlertCircle, Database, RefreshCw
+  XCircle, Clock, AlertCircle, Database, RefreshCw, Download
 } from 'lucide-react';
+import { generateGoalTemplate } from '@/utils/generateGoalTemplate';
 
 interface BatchRecord {
   id: string;
@@ -245,7 +246,7 @@ export default function AdminBasePage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <button
             onClick={handleProcess}
             disabled={isProcessing || (!oppFile && !actFile)}
@@ -263,6 +264,13 @@ export default function AdminBasePage() {
               {isPublishing ? <><Loader className="animate-spin" size={16} /> Publicando...</> : <><Database size={16} /> Publicar Base</>}
             </button>
           )}
+
+          <button
+            onClick={generateGoalTemplate}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-xl border-2 border-purple-300 text-purple-700 hover:bg-purple-50 transition-all hover:scale-[1.02]"
+          >
+            <Download size={16} /> Baixar Modelo de Metas
+          </button>
         </div>
 
         {/* Progress */}
