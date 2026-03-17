@@ -32,15 +32,15 @@ export function AppLayout() {
             </div>
             <div>
               <h1 className="text-xl font-bold">Acompanhamento Venda GTN</h1>
-              <div className="flex items-center gap-3 text-xs text-green-100">
-                <span>Funil de Vendas · Oportunidades & Compromissos</span>
+              <div className="flex flex-col gap-0.5 text-xs text-green-100">
+                <span>Funil de Vendas · Oportunidades</span>
                 {batchInfo?.publishedAt ? (
-                  <span className="bg-white/15 px-2 py-0.5 rounded-full">
+                  <span className="bg-white/15 px-2 py-0.5 rounded-full w-fit">
                     Última atualização: {formatDate(batchInfo.publishedAt)}
                     {batchInfo.createdByName ? ` por ${batchInfo.createdByName}` : ''}
                   </span>
                 ) : (
-                  <span className="bg-amber-500/30 px-2 py-0.5 rounded-full">
+                  <span className="bg-amber-500/30 px-2 py-0.5 rounded-full w-fit">
                     Nenhuma base publicada até o momento.
                   </span>
                 )}
