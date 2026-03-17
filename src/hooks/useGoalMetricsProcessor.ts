@@ -84,9 +84,14 @@ export const useGoalMetricsProcessor = (
 
     const months = periodToMonths[selectedPeriod] || [];
     const goalYears = new Set(goals.map((g) => normalizeYear(g.ano)).filter(Boolean));
-    console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goalYears: Array.from(goalYears), goals: goals.length, pedidos: pedidos.length });
-    if (!months.length || !goals.length) {
-      console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', goals.length);
+    // BLOCO 4: If a specific year is selected, only use goals for that year
+    const targetYear = selectedYear || (goalYears.size > 0 ? Array.from(goalYears)[0] : '');
+    const yearFilteredGoals = targetYear
+      ? goals.filter((g) => normalizeYear(g.ano) === targetYear)
+      : goals;
+    console.log('[GOAL_METRICS] start', { selectedPeriod, targetYear, months: months.length, goalYears: Array.from(goalYears), goals: yearFilteredGoals.length, pedidos: pedidos.length });
+    if (!months.length || !yearFilteredGoals.length) {
+      console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', yearFilteredGoals.length);
       return emptyResult;
     }
 
