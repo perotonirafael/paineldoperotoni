@@ -309,6 +309,13 @@ export const useAnnualGoalMetrics = (
         const monthIdx = ALL_MONTHS.indexOf(pedido.mesFechamento);
         if (monthIdx === -1) continue;
 
+        // BLOCO 5: Skip pedidos with only license/maintenance, no services
+        const hasServico = (pedido.servicoValorLiquido || 0) > 0;
+        const hasLicenca = (pedido.produtoValorLicenca || 0) > 0;
+        const hasManutencao = (pedido.produtoValorManutencao || 0) > 0;
+        if ((hasLicenca || hasManutencao) && !hasServico) continue;
+        if (!hasServico) continue;
+
         pedidosMatched++;
         monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);
         monthlyRealServico[monthIdx] += (pedido.servicoValorLiquido || 0);

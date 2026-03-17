@@ -59,6 +59,7 @@ export const useGoalMetricsProcessor = (
   selectedPeriod: string,
   actions: Action[],
   opportunities: Opportunity[],
+  selectedYear?: string,
 ): GoalMetricsResult => {
   return useMemo((): GoalMetricsResult => {
     const emptyResult: GoalMetricsResult = { metricas: [], goalComposition: [], matchedPedidos: [] };
@@ -83,9 +84,14 @@ export const useGoalMetricsProcessor = (
 
     const months = periodToMonths[selectedPeriod] || [];
     const goalYears = new Set(goals.map((g) => normalizeYear(g.ano)).filter(Boolean));
-    console.log('[GOAL_METRICS] start', { selectedPeriod, months: months.length, goalYears: Array.from(goalYears), goals: goals.length, pedidos: pedidos.length });
-    if (!months.length || !goals.length) {
-      console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', goals.length);
+    // BLOCO 4: If a specific year is selected, only use goals for that year
+    const targetYear = selectedYear || (goalYears.size > 0 ? Array.from(goalYears)[0] : '');
+    const yearFilteredGoals = targetYear
+      ? goals.filter((g) => normalizeYear(g.ano) === targetYear)
+      : goals;
+    console.log('[GOAL_METRICS] start', { selectedPeriod, targetYear, months: months.length, goalYears: Array.from(goalYears), goals: yearFilteredGoals.length, pedidos: pedidos.length });
+    if (!months.length || !yearFilteredGoals.length) {
+      console.log('[GOAL_METRICS] No months or goals. months=', months.length, 'goals=', yearFilteredGoals.length);
       return emptyResult;
     }
 
@@ -104,7 +110,7 @@ export const useGoalMetricsProcessor = (
     });
 
     // 0) Collect goal user IDs
-    const goalUserIds = new Set(goals.map((g) => g.idUsuario));
+    const goalUserIds = new Set(yearFilteredGoals.map((g) => g.idUsuario));
     console.log('[GOAL_METRICS] Goal user IDs:', Array.from(goalUserIds));
 
     // 1) Map user ERP ID → Name (only from raw data when available)
@@ -145,8 +151,8 @@ export const useGoalMetricsProcessor = (
     }
 
     // 2) Metas do período
-    const hasTotalGestao = goals.some((g) => norm(g.produto).includes('total'));
-    const filteredGoals = hasTotalGestao ? goals.filter((g) => norm(g.produto).includes('total')) : goals;
+    const hasTotalGestao = yearFilteredGoals.some((g) => norm(g.produto).includes('total'));
+    const filteredGoals = hasTotalGestao ? yearFilteredGoals.filter((g) => norm(g.produto).includes('total')) : yearFilteredGoals;
 
     let metaTotalLicencasServicos = 0;
     let metaTotalRecorrente = 0;
@@ -318,8 +324,22 @@ export const useGoalMetricsProcessor = (
 
     const isPedidoWithinSelectedPeriod = (pedido: PedidoRecord) => {
       const monthMatch = months.includes(pedido.mesFechamento);
-      const yearMatch = goalYears.size === 0 || goalYears.has(pedido.anoFechamento);
+      // BLOCO 4: Use targetYear for year matching
+      const yearMatch = !targetYear || pedido.anoFechamento === targetYear;
       return monthMatch && yearMatch;
+    };
+
+    // BLOCO 5: Pedido eligibility filter
+    // Exclude pedidos that have ONLY license/maintenance without services
+    const isPedidoEligible = (pedido: PedidoRecord): boolean => {
+      const hasLicenca = (pedido.produtoValorLicenca || 0) > 0;
+      const hasManutencao = (pedido.produtoValorManutencao || 0) > 0;
+      const hasServico = (pedido.servicoValorLiquido || 0) > 0;
+      // If has license/maintenance but NO services → not eligible
+      if ((hasLicenca || hasManutencao) && !hasServico) return false;
+      // If has services (with or without license) → eligible
+      // If has nothing → not eligible
+      return hasServico;
     };
 
     for (const oppId of oppIdsFechadaGanha) {
@@ -349,6 +369,9 @@ export const useGoalMetricsProcessor = (
           pedidosDateMismatchCount++;
           continue;
         }
+
+        // BLOCO 5: Skip pedidos with only license/maintenance, no services
+        if (!isPedidoEligible(pedido)) continue;
 
         pedidosMatchCount++;
         const licenca = pedido.produtoValorLicenca || 0;
@@ -465,5 +488,5 @@ export const useGoalMetricsProcessor = (
     }
 
     return { metricas: [totalMetric, ...etnResults], goalComposition, matchedPedidos: allMatchedPedidos };
-  }, [goals, pedidos, processedData, selectedPeriod, actions, opportunities]);
+  }, [goals, pedidos, processedData, selectedPeriod, actions, opportunities, selectedYear]);
 };
