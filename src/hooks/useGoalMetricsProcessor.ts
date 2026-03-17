@@ -324,8 +324,22 @@ export const useGoalMetricsProcessor = (
 
     const isPedidoWithinSelectedPeriod = (pedido: PedidoRecord) => {
       const monthMatch = months.includes(pedido.mesFechamento);
-      const yearMatch = goalYears.size === 0 || goalYears.has(pedido.anoFechamento);
+      // BLOCO 4: Use targetYear for year matching
+      const yearMatch = !targetYear || pedido.anoFechamento === targetYear;
       return monthMatch && yearMatch;
+    };
+
+    // BLOCO 5: Pedido eligibility filter
+    // Exclude pedidos that have ONLY license/maintenance without services
+    const isPedidoEligible = (pedido: PedidoRecord): boolean => {
+      const hasLicenca = (pedido.produtoValorLicenca || 0) > 0;
+      const hasManutencao = (pedido.produtoValorManutencao || 0) > 0;
+      const hasServico = (pedido.servicoValorLiquido || 0) > 0;
+      // If has license/maintenance but NO services → not eligible
+      if ((hasLicenca || hasManutencao) && !hasServico) return false;
+      // If has services (with or without license) → eligible
+      // If has nothing → not eligible
+      return hasServico;
     };
 
     for (const oppId of oppIdsFechadaGanha) {
