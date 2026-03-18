@@ -81,6 +81,13 @@ export function usePublishedDataset() {
 
         const text = await fileData.text();
         const parsed = JSON.parse(text);
+        console.log('[PUBLISHED] Snapshot loaded:', {
+          hasWorkerResult: !!parsed.workerResult,
+          goalsCount: parsed.goals?.length ?? 0,
+          pedidosCount: parsed.pedidos?.length ?? 0,
+          rawOpportunitiesCount: parsed.rawOpportunities?.length ?? 0,
+          rawActionsCount: parsed.rawActions?.length ?? 0,
+        });
         setSnapshot(parsed);
       }
     } catch (err) {

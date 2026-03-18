@@ -1305,7 +1305,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
         {processedData.length > 0 &&
         <div className="mt-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">Análise Comparativa de ETNs</h2>
-            <ETNComparativeAnalysis data={filteredData} actions={actions} />
+            <ETNComparativeAnalysis data={filteredData} actions={filteredActions} />
           </div>
         }
         {/* Modal de Detalhe do ETN */}
