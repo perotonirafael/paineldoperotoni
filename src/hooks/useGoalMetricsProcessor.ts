@@ -6,6 +6,7 @@ import type { MatchedPedidoExport, GoalCompositionExport } from './useAnnualGoal
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { isLicencaServicoGoalRubrica, isRecurringGoalRubrica } from '@/lib/goalRubricas';
+import { aggregateEligiblePedidoRows } from '@/lib/pedidoMetrics';
 
 export interface GoalMetricsResult {
   metricas: GoalMetrics[];
@@ -322,14 +323,6 @@ export const useGoalMetricsProcessor = (
       return monthMatch && yearMatch;
     };
 
-    // Pedido eligibility: must have services. License/maintenance alone = upgrade = excluded.
-    const isPedidoEligible = (pedido: PedidoRecord): boolean => {
-      const hasServico = (pedido.servicoValorLiquido || 0) !== 0;
-      // If has services, include (with or without license/maintenance)
-      // If ONLY license and/or maintenance (no services), exclude as upgrade
-      return hasServico;
-    };
-
     for (const oppId of oppIdsFechadaGanha) {
       const etns = oppIdToEtn.get(oppId);
       if (!etns || etns.size === 0) continue;
@@ -352,14 +345,13 @@ export const useGoalMetricsProcessor = (
         if (directMatch) matchedPedidosList = directMatch;
       }
 
-      for (const pedido of matchedPedidosList) {
+      const eligiblePedidos = aggregateEligiblePedidoRows(matchedPedidosList);
+
+      for (const pedido of eligiblePedidos) {
         if (!isPedidoWithinSelectedPeriod(pedido)) {
           pedidosDateMismatchCount++;
           continue;
         }
-
-        // BLOCO 5: Skip pedidos with only license/maintenance, no services
-        if (!isPedidoEligible(pedido)) continue;
 
         pedidosMatchCount++;
         const licenca = pedido.produtoValorLicenca || 0;
