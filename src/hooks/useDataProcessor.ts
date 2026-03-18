@@ -54,6 +54,7 @@ export interface MissingAgendaRecord {
   oppAnteriorId: string;
   oppAnteriorEtapa: string;
   agendaAnterior: number;
+  validacaoProduto?: string; // 'Sim' | 'Não' | 'N/A'
 }
 
 const MONTH_NAMES: Record<number, string> = {
