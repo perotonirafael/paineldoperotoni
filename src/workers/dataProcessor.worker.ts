@@ -783,16 +783,13 @@ self.onmessage = (event: MessageEvent) => {
 
       self.postMessage({ type: 'progress', stage: 'processing', progress: 75, message: 'Processando dados...' });
 
-      const includeRawData = opportunities.length <= RAW_TRANSFER_LIMIT && actions.length <= RAW_TRANSFER_LIMIT;
-      const result = buildProcessResult(opportunities, actions, includeRawData);
+      const result = buildProcessResult(opportunities, actions);
 
       self.postMessage({
         type: 'progress',
         stage: 'done',
         progress: 95,
-        message: includeRawData
-          ? 'Finalizando...'
-          : 'Finalizando (modo otimizado para grande volume)...',
+        message: 'Finalizando...',
       });
       self.postMessage({ type: 'result', ...result });
 
