@@ -707,12 +707,8 @@ function processData(opportunities: any[], actions: any[]) {
   };
 }
 
-const RAW_TRANSFER_LIMIT = 25000;
-
-function buildProcessResult(opportunities: any[], actions: any[], includeRawData: boolean) {
+function buildProcessResult(opportunities: any[], actions: any[]) {
   const result = processData(opportunities, actions);
-  if (!includeRawData) return result;
-
   return {
     ...result,
     rawOpportunities: opportunities,
