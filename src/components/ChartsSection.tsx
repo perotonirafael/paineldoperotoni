@@ -475,16 +475,16 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
       {/* BLOCO 8: Forecast por ETN - estilo Funil */}
       {/* (Already shown above as bar chart - keeping original as it's the main ETN view) */}
 
-      {/* TOP 10 Maiores Recursos X Agendas */}
+      {/* TOP 5 Maiores Recursos X Agendas */}
       <div className="bg-white rounded-xl p-5 border border-border shadow-sm">
-        <h3 className="text-sm font-bold text-foreground mb-1">TOP 10 Maiores Recursos X Agendas</h3>
+        <h3 className="text-sm font-bold text-foreground mb-1">TOP 5 Maiores Recursos X Agendas</h3>
         <p className="text-xs text-muted-foreground mb-4">Valor previsto vs quantidade de compromissos por ETN</p>
         {etnRecursosAgendas.length > 0 ? (
-          <div style={{ height: Math.max(280, etnRecursosAgendas.length * 35) }}>
+          <div style={{ height: Math.max(300, Math.min(etnRecursosAgendas.length, 5) * 60) }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={etnRecursosAgendas} layout="vertical" margin={{ left: 10, right: 50 }}>
+              <BarChart data={etnRecursosAgendas.slice(0, 5)} layout="vertical" margin={{ left: 10, right: 60 }} barSize={28}>
                 <XAxis type="number" tickFormatter={formatCurrency} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
-                <YAxis type="category" dataKey="name" width={170} tick={{ fill: '#374151', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
+                <YAxis type="category" dataKey="name" width={170} tick={{ fill: '#374151', fontSize: 12, fontWeight: 600 }} axisLine={{ stroke: '#e5e7eb' }} />
                 <Tooltip
                   content={({ active, payload }: any) => {
                     if (!active || !payload?.length) return null;
@@ -499,12 +499,12 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
                   }}
                 />
                 <Bar dataKey="valor" name="Valor" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d: any) => onChartClick('etn', d.fullName || d.name)}>
-                  {etnRecursosAgendas.map((_, i) => (
+                  {etnRecursosAgendas.slice(0, 5).map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
-                  <LabelList dataKey="valor" position="right" fill="#374151" fontSize={10} formatter={(v: number) => formatCurrency(v)} />
+                  <LabelList dataKey="valor" position="right" fill="#374151" fontSize={11} formatter={(v: number) => formatCurrency(v)} />
                 </Bar>
-                <Bar dataKey="agendas" name="Agendas" radius={[0, 6, 6, 0]} fill="#d1d5db" opacity={0.6} />
+                <Bar dataKey="agendas" name="Agendas" radius={[0, 6, 6, 0]} fill="#94a3b8" opacity={0.7} barSize={20} />
                 <Legend />
               </BarChart>
             </ResponsiveContainer>

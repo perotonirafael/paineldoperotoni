@@ -309,11 +309,9 @@ export const useAnnualGoalMetrics = (
         const monthIdx = ALL_MONTHS.indexOf(pedido.mesFechamento);
         if (monthIdx === -1) continue;
 
-        // Include any pedido with at least one non-zero value
-        const hasValue = (pedido.produtoValorLicenca || 0) !== 0 ||
-          (pedido.produtoValorManutencao || 0) !== 0 ||
-          (pedido.servicoValorLiquido || 0) !== 0;
-        if (!hasValue) continue;
+        // Must have services - license/maintenance alone = upgrade = excluded
+        const hasServico = (pedido.servicoValorLiquido || 0) !== 0;
+        if (!hasServico) continue;
 
         pedidosMatched++;
         monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);

@@ -329,12 +329,12 @@ export const useGoalMetricsProcessor = (
       return monthMatch && yearMatch;
     };
 
-    // Pedido eligibility: any pedido with at least one non-zero value is eligible
+    // Pedido eligibility: must have services. License/maintenance alone = upgrade = excluded.
     const isPedidoEligible = (pedido: PedidoRecord): boolean => {
-      const hasLicenca = (pedido.produtoValorLicenca || 0) !== 0;
-      const hasManutencao = (pedido.produtoValorManutencao || 0) !== 0;
       const hasServico = (pedido.servicoValorLiquido || 0) !== 0;
-      return hasLicenca || hasManutencao || hasServico;
+      // If has services, include (with or without license/maintenance)
+      // If ONLY license and/or maintenance (no services), exclude as upgrade
+      return hasServico;
     };
 
     for (const oppId of oppIdsFechadaGanha) {
