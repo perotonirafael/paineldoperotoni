@@ -3,12 +3,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const EXACT_ALLOWED_ORIGINS = [
   'http://perotoni.comercial.ws',
   'https://perotoni.comercial.ws',
+  'https://paineldoperotoni.vercel.app',
   'https://paineldoperotoni.lovable.app',
 ]
 
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/.*\.lovableproject\.com$/,
   /^https:\/\/.*\.lovable\.app$/,
+  /^https:\/\/.*\.vercel\.app$/,
   /^http:\/\/localhost(?::\d+)?$/,
   /^http:\/\/127\.0\.0\.1(?::\d+)?$/,
 ]
