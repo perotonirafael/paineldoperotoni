@@ -324,51 +324,23 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
 
       {/* BLOCO 7: NOVA ORDEM - Top 10 Motivos de Perda ao lado de Valor previsto vs Valor fechado */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top 10 Motivos de Perda */}
+        {/* Top 10 Motivos de Perda - Estilo Funil (mesmo visual do Funil de Forecast) */}
         {lossReasonsWithETN.length > 0 && (
-          <div className="bg-white rounded-xl p-5 border border-border shadow-sm">
-            <h3 className="text-sm font-bold text-foreground mb-1">Top 10 Motivos de Perda</h3>
-            <p className="text-xs text-muted-foreground mb-4">Principais causas e ETNs com mais perdas (clique para filtrar)</p>
-            <div style={{ height: Math.max(320, lossReasonsWithETN.length * 55) }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={lossReasonsWithETN} layout="vertical" margin={{ left: 10, right: 60 }}>
-                  <XAxis type="number" tickFormatter={formatCurrency} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
-                  <YAxis type="category" dataKey="name" width={220} tick={{ fill: '#374151', fontSize: 10 }} axisLine={{ stroke: '#e5e7eb' }} />
-                  <Tooltip
-                    content={({ active, payload }: any) => {
-                      if (!active || !payload?.length) return null;
-                      const d = payload[0].payload;
-                      return (
-                        <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-lg text-xs">
-                          <p className="font-bold text-gray-800 mb-1">{d.fullName}</p>
-                          <p className="text-gray-600">Valor: <span className="font-bold text-red-600">{formatCurrency(d.value)}</span></p>
-                          <p className="text-gray-600 mb-2">Qtd: <span className="font-bold">{d.count}</span> oportunidades</p>
-                          {d.topETNs?.length > 0 && (
-                            <>
-                              <p className="font-semibold text-gray-700 border-t pt-1 mt-1">ETNs com mais perdas:</p>
-                              {d.topETNs.map((etn: any, i: number) => (
-                                <p key={i} className="text-gray-600 pl-2">
-                                  {i + 1}. {etn.name}: <span className="font-bold text-red-600">{formatCurrency(etn.value)}</span> ({etn.count} ops)
-                                </p>
-                              ))}
-                            </>
-                          )}
-                        </div>
-                      );
-                    }}
-                  />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d: any) => onChartClick('motivoPerda', d.fullName || d.name)}>
-                    {lossReasonsWithETN.map((_, i) => {
-                      const colors = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6'];
-                      return <Cell key={i} fill={colors[i % colors.length]} />;
-                    })}
-                    <LabelList dataKey="value" position="right" fill="#374151" fontSize={10} formatter={(v: number) => formatCurrency(v)} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <DateRangeFooter data={data} />
-          </div>
+          <FunnelStyleChart
+            data={lossReasonsWithETN.map(d => ({
+              name: d.name,
+              fullName: d.fullName,
+              value: d.value,
+              count: d.count,
+              extra: d.topETNs?.length > 0
+                ? `Top: ${d.topETNs.map((e: any) => e.name).join(', ')}`
+                : undefined,
+            }))}
+            title="Top 10 Motivos de Perda"
+            subtitle="Principais causas e ETNs com mais perdas (clique para filtrar)"
+            onItemClick={(val) => onChartClick('motivoPerda', val)}
+            colors={['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6']}
+          />
         )}
 
         {/* Valor Previsto vs Fechado */}
@@ -503,16 +475,16 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
       {/* BLOCO 8: Forecast por ETN - estilo Funil */}
       {/* (Already shown above as bar chart - keeping original as it's the main ETN view) */}
 
-      {/* TOP 10 Maiores Recursos X Agendas */}
+      {/* TOP 5 Maiores Recursos X Agendas */}
       <div className="bg-white rounded-xl p-5 border border-border shadow-sm">
-        <h3 className="text-sm font-bold text-foreground mb-1">TOP 10 Maiores Recursos X Agendas</h3>
+        <h3 className="text-sm font-bold text-foreground mb-1">TOP 5 Maiores Recursos X Agendas</h3>
         <p className="text-xs text-muted-foreground mb-4">Valor previsto vs quantidade de compromissos por ETN</p>
         {etnRecursosAgendas.length > 0 ? (
-          <div style={{ height: Math.max(280, etnRecursosAgendas.length * 35) }}>
+          <div style={{ height: Math.max(300, Math.min(etnRecursosAgendas.length, 5) * 60) }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={etnRecursosAgendas} layout="vertical" margin={{ left: 10, right: 50 }}>
+              <BarChart data={etnRecursosAgendas.slice(0, 5)} layout="vertical" margin={{ left: 10, right: 60 }} barSize={28}>
                 <XAxis type="number" tickFormatter={formatCurrency} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
-                <YAxis type="category" dataKey="name" width={170} tick={{ fill: '#374151', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
+                <YAxis type="category" dataKey="name" width={170} tick={{ fill: '#374151', fontSize: 12, fontWeight: 600 }} axisLine={{ stroke: '#e5e7eb' }} />
                 <Tooltip
                   content={({ active, payload }: any) => {
                     if (!active || !payload?.length) return null;
@@ -527,12 +499,12 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
                   }}
                 />
                 <Bar dataKey="valor" name="Valor" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d: any) => onChartClick('etn', d.fullName || d.name)}>
-                  {etnRecursosAgendas.map((_, i) => (
+                  {etnRecursosAgendas.slice(0, 5).map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
-                  <LabelList dataKey="valor" position="right" fill="#374151" fontSize={10} formatter={(v: number) => formatCurrency(v)} />
+                  <LabelList dataKey="valor" position="right" fill="#374151" fontSize={11} formatter={(v: number) => formatCurrency(v)} />
                 </Bar>
-                <Bar dataKey="agendas" name="Agendas" radius={[0, 6, 6, 0]} fill="#d1d5db" opacity={0.6} />
+                <Bar dataKey="agendas" name="Agendas" radius={[0, 6, 6, 0]} fill="#94a3b8" opacity={0.7} barSize={20} />
                 <Legend />
               </BarChart>
             </ResponsiveContainer>
