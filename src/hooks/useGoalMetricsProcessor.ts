@@ -5,6 +5,7 @@ import type { Action, Opportunity } from './useDataProcessor';
 import type { MatchedPedidoExport, GoalCompositionExport } from './useAnnualGoalMetrics';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
+import { isLicencaServicoGoalRubrica, isRecurringGoalRubrica } from '@/lib/goalRubricas';
 
 export interface GoalMetricsResult {
   metricas: GoalMetrics[];
