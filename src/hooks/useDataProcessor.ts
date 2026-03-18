@@ -284,6 +284,22 @@ export function useDataProcessor(opportunities: Opportunity[], actions: Action[]
             const etapa = trim(opp['Etapa']);
             const { month: mFech, year: yFech } = parseDate(trim(opp['Previsão de Fechamento']));
             const prob = cleanProb(opp['Prob.']);
+            const thisSubtipo = trim(opp['Subtipo de Oportunidade']);
+            
+            // Validação de Produto: comparar subtipo da nova opp com subtipo da opp anterior
+            let validacaoProduto = 'N/A';
+            const prevOpp = oppById.get(bestPrevOppId);
+            if (prevOpp) {
+              const prevSubtipo = trim(prevOpp['Subtipo de Oportunidade']);
+              if (prevSubtipo && thisSubtipo) {
+                // Normalize and compare: check if at least one product word matches
+                const prevWords = prevSubtipo.toLowerCase().split(/[\s,;/]+/).filter(Boolean);
+                const thisWords = thisSubtipo.toLowerCase().split(/[\s,;/]+/).filter(Boolean);
+                const hasMatch = prevWords.some(pw => thisWords.some(tw => tw === pw && pw.length > 2));
+                validacaoProduto = hasMatch ? 'Sim' : 'Não';
+              }
+            }
+
             missingAgendas.push({
               oppId: thisOppId,
               conta: trim(opp['Conta']),
@@ -294,10 +310,12 @@ export function useDataProcessor(opportunities: Opportunity[], actions: Action[]
               valorPrevisto: parseValue(opp['Valor Previsto']),
               mesFech: mFech,
               anoPrevisao: yFech,
+              subtipoOportunidade: thisSubtipo,
               dataCriacao: trim(opp['Data']) || trim(opp['Data de Criação']) || trim(opp['Data Criação']) || '',
               oppAnteriorId: bestPrevOppId,
-              oppAnteriorEtapa: trim(oppById.get(bestPrevOppId)?.[' Etapa'] || ''),
+              oppAnteriorEtapa: trim(oppById.get(bestPrevOppId)?.['Etapa'] || ''),
               agendaAnterior: (actionsByOppId.get(bestPrevOppId) || []).length,
+              validacaoProduto,
             });
           }
         }
