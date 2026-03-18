@@ -288,14 +288,12 @@ export const useAnnualGoalMetrics = (
         if (direct) matched = direct;
       }
 
-      for (const pedido of matched) {
+      const eligibleRows = aggregateEligiblePedidoRows(matched);
+
+      for (const pedido of eligibleRows) {
         if (pedido.anoFechamento !== targetYear) continue;
         const monthIdx = ALL_MONTHS.indexOf(pedido.mesFechamento);
         if (monthIdx === -1) continue;
-
-        // Must have services - license/maintenance alone = upgrade = excluded
-        const hasServico = (pedido.servicoValorLiquido || 0) !== 0;
-        if (!hasServico) continue;
 
         pedidosMatched++;
         monthlyRealLicenca[monthIdx] += (pedido.produtoValorLicenca || 0);
