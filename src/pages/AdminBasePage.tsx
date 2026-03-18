@@ -126,6 +126,7 @@ export default function AdminBasePage() {
         'Categoria': act['Categoria'],
         'Atividade': act['Atividade'],
         'Data': act['Data'],
+        'Duracao': act['Duracao'] || act['Duração'] || '',
         'Id Usuário ERP': act['Id Usuário ERP'] || act['Id Usuario ERP'] || act['ID USUARIO ERP'],
       }));
 
