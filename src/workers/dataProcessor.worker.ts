@@ -725,8 +725,7 @@ self.onmessage = (event: MessageEvent) => {
     try {
       const opportunities = event.data.opportunities || [];
       const actions = event.data.actions || [];
-      const includeRawData = opportunities.length <= RAW_TRANSFER_LIMIT && actions.length <= RAW_TRANSFER_LIMIT;
-      const result = buildProcessResult(opportunities, actions, includeRawData);
+      const result = buildProcessResult(opportunities, actions);
       self.postMessage({ type: 'result', ...result });
     } catch (error) {
       self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' });
