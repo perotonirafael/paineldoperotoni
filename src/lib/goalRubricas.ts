@@ -8,6 +8,10 @@ function normalizeLabel(value: string): string {
 
 export function isRecurringGoalRubrica(rubrica: string): boolean {
   const normalized = normalizeLabel(rubrica);
+  // "Serviços Não Recorrentes" contém "recorrente" mas NÃO é recorrente
+  if (normalized.includes('nao recorrente') || normalized.includes('não recorrente')) {
+    return false;
+  }
   return (
     normalized.includes('recorrente') ||
     normalized.includes('manutencao') ||
