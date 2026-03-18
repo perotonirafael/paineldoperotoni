@@ -217,6 +217,18 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
   const goalMetricas = goalMetricasResult.metricas;
   const annualGoalData = useAnnualGoalMetrics(goals, pedidos, actions, opportunities, processedData, selectedGoalYear);
 
+  // Actions filtradas pelos mesmos critérios de filteredData (oppIds presentes)
+  const filteredActions = useMemo(() => {
+    if (selYears.length === 0 && selMonths.length === 0 && selETN.length === 0 && selReps.length === 0 && selResp.length === 0 && selStages.length === 0 && selAccounts.length === 0 && selTypes.length === 0 && selSubtipos.length === 0 && selProbs.length === 0 && selAgenda.length === 0) {
+      return actions;
+    }
+    const oppIdsInFiltered = new Set(filteredData.map((r: ProcessedRecord) => r.oppId));
+    return actions.filter((a: Action) => {
+      const oppId = (a['Oportunidade ID'] || '').toString().trim();
+      return oppIdsInFiltered.has(oppId);
+    });
+  }, [actions, filteredData, selYears, selMonths, selETN, selReps, selResp, selStages, selAccounts, selTypes, selSubtipos, selProbs, selAgenda]);
+
   // Ajuste: Taxa de Conversão por ETN (somente Demonstração Presencial/Remota)
   // Quando actions está disponível (upload direto ou demo), calcular localmente.
   // Quando actions está vazio (cache), usar o etnConversionTop10 pré-calculado pelo worker.
