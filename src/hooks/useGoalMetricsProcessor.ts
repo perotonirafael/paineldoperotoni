@@ -6,6 +6,7 @@ import type { MatchedPedidoExport, GoalCompositionExport } from './useAnnualGoal
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { isLicencaServicoGoalRubrica, isRecurringGoalRubrica } from '@/lib/goalRubricas';
+import { aggregateEligiblePedidoRows } from '@/lib/pedidoMetrics';
 
 export interface GoalMetricsResult {
   metricas: GoalMetrics[];

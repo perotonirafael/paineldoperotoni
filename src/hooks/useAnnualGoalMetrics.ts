@@ -4,6 +4,7 @@ import type { Action, Opportunity, ProcessedRecord } from './useDataProcessor';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { isLicencaServicoGoalRubrica, isRecurringGoalRubrica } from '@/lib/goalRubricas';
+import { aggregateEligiblePedidoRows } from '@/lib/pedidoMetrics';
 
 function norm(s: string): string {
   return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
