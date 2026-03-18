@@ -146,8 +146,11 @@ export default function AdminBasePage() {
         'Id Usuário ERP': act['Id Usuário ERP'] || act['Id Usuario ERP'] || act['ID USUARIO ERP'],
       }));
 
+      // Remove raw data from workerResult to avoid duplication in snapshot
+      const { rawOpportunities: _ro, rawActions: _ra, ...workerResultSlim } = processedResult;
+
       const snapshot = {
-        workerResult: processedResult,
+        workerResult: workerResultSlim,
         goals: publishedGoals,
         pedidos: publishedPedidos,
         rawOpportunities: slimOpportunities,
