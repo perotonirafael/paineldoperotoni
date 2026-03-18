@@ -219,8 +219,24 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
     const valorMedio = totalOps > 0 ? valorTotal / totalOps : 0;
     const totalAgendas = etnDataFiltered.reduce((sum, r) => sum + r.agenda, 0);
 
-    return { totalOps, ganhas, perdidas, ganhasValor, perdidasValor, winRate, valorTotal, valorMedio, totalAgendas, closedTotal: ganhas + perdidas, ganhasDemo, perdidasDemo };
-  }, [etnDataFiltered, uniqueOps, qualifiedOppIds, demoOppIds]);
+    // Duration stats
+    const totalEligibleHours = (() => {
+      let hours = 0;
+      for (const a of etnActions) {
+        const cat = normalize(trim(a['Categoria']));
+        const isEligible = cat.includes('demonstracao') || cat.includes('analise') || cat.includes('etn apoio') || cat.includes('termo') || cat.includes('edital');
+        if (!isEligible) continue;
+        const durStr = trim(a['Duracao'] || a['Duração'] || '');
+        if (durStr) {
+          const parts = durStr.split(':').map(Number);
+          if (parts.length >= 2) hours += (parts[0] || 0) + (parts[1] || 0) / 60;
+        }
+      }
+      return parseFloat(hours.toFixed(1));
+    })();
+
+    return { totalOps, ganhas, perdidas, ganhasValor, perdidasValor, winRate, valorTotal, valorMedio, totalAgendas, closedTotal: ganhas + perdidas, ganhasDemo, perdidasDemo, totalEligibleHours };
+  }, [etnDataFiltered, uniqueOps, qualifiedOppIds, demoOppIds, etnActions]);
 
   const conversionChartData = useMemo(() => ([
     { name: 'Conversão', ganhas: kpis.ganhasDemo ?? kpis.ganhas, perdidas: kpis.perdidasDemo ?? kpis.perdidas },
