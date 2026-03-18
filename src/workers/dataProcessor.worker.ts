@@ -707,12 +707,8 @@ function processData(opportunities: any[], actions: any[]) {
   };
 }
 
-const RAW_TRANSFER_LIMIT = 25000;
-
-function buildProcessResult(opportunities: any[], actions: any[], includeRawData: boolean) {
+function buildProcessResult(opportunities: any[], actions: any[]) {
   const result = processData(opportunities, actions);
-  if (!includeRawData) return result;
-
   return {
     ...result,
     rawOpportunities: opportunities,
@@ -729,8 +725,7 @@ self.onmessage = (event: MessageEvent) => {
     try {
       const opportunities = event.data.opportunities || [];
       const actions = event.data.actions || [];
-      const includeRawData = opportunities.length <= RAW_TRANSFER_LIMIT && actions.length <= RAW_TRANSFER_LIMIT;
-      const result = buildProcessResult(opportunities, actions, includeRawData);
+      const result = buildProcessResult(opportunities, actions);
       self.postMessage({ type: 'result', ...result });
     } catch (error) {
       self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' });
@@ -788,16 +783,13 @@ self.onmessage = (event: MessageEvent) => {
 
       self.postMessage({ type: 'progress', stage: 'processing', progress: 75, message: 'Processando dados...' });
 
-      const includeRawData = opportunities.length <= RAW_TRANSFER_LIMIT && actions.length <= RAW_TRANSFER_LIMIT;
-      const result = buildProcessResult(opportunities, actions, includeRawData);
+      const result = buildProcessResult(opportunities, actions);
 
       self.postMessage({
         type: 'progress',
         stage: 'done',
         progress: 95,
-        message: includeRawData
-          ? 'Finalizando...'
-          : 'Finalizando (modo otimizado para grande volume)...',
+        message: 'Finalizando...',
       });
       self.postMessage({ type: 'result', ...result });
 
