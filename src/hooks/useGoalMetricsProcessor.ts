@@ -329,17 +329,12 @@ export const useGoalMetricsProcessor = (
       return monthMatch && yearMatch;
     };
 
-    // BLOCO 5: Pedido eligibility filter
-    // Exclude pedidos that have ONLY license/maintenance without services
+    // Pedido eligibility: any pedido with at least one non-zero value is eligible
     const isPedidoEligible = (pedido: PedidoRecord): boolean => {
-      const hasLicenca = (pedido.produtoValorLicenca || 0) > 0;
-      const hasManutencao = (pedido.produtoValorManutencao || 0) > 0;
-      const hasServico = (pedido.servicoValorLiquido || 0) > 0;
-      // If has license/maintenance but NO services → not eligible
-      if ((hasLicenca || hasManutencao) && !hasServico) return false;
-      // If has services (with or without license) → eligible
-      // If has nothing → not eligible
-      return hasServico;
+      const hasLicenca = (pedido.produtoValorLicenca || 0) !== 0;
+      const hasManutencao = (pedido.produtoValorManutencao || 0) !== 0;
+      const hasServico = (pedido.servicoValorLiquido || 0) !== 0;
+      return hasLicenca || hasManutencao || hasServico;
     };
 
     for (const oppId of oppIdsFechadaGanha) {
