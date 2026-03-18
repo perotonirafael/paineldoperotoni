@@ -5,6 +5,7 @@ import type { Action, Opportunity } from './useDataProcessor';
 import type { MatchedPedidoExport, GoalCompositionExport } from './useAnnualGoalMetrics';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
+import { isLicencaServicoGoalRubrica, isRecurringGoalRubrica } from '@/lib/goalRubricas';
 
 export interface GoalMetricsResult {
   metricas: GoalMetrics[];
@@ -174,17 +175,9 @@ export const useGoalMetricsProcessor = (
         else if (month === 'Dezembro') metaValue += goal.dezembro;
       }
 
-      const rubricaNorm = norm(goal.rubrica);
-      if (
-        rubricaNorm.includes('setup') ||
-        rubricaNorm.includes('licenca') ||
-        rubricaNorm.includes('licencas') ||
-        rubricaNorm.includes('servicos nao recorrentes') ||
-        rubricaNorm.includes('servicos não recorrentes') ||
-        (rubricaNorm.includes('servico') && rubricaNorm.includes('nao recorrente'))
-      ) {
+      if (isLicencaServicoGoalRubrica(goal.rubrica)) {
         metaTotalLicencasServicos += metaValue;
-      } else if (rubricaNorm.includes('recorrente') && !rubricaNorm.includes('nao')) {
+      } else if (isRecurringGoalRubrica(goal.rubrica)) {
         metaTotalRecorrente += metaValue;
       }
     }

@@ -52,7 +52,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
   const [pedidoFileName, setPedidoFileName] = useState('');
   const [goals, setGoals] = useState<GoalRecord[]>(publishedSnapshot?.goals || []);
   const [pedidos, setPedidos] = useState<PedidoRecord[]>(publishedSnapshot?.pedidos || []);
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('Março'); // Período padrão
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('Março');
 
   const { state: processingState, processFiles: processFilesLegacy, resetState } = useFileProcessor();
   const { processData: processDataWithWorker, processFiles: processFilesWithWorker, isProcessing: isWorkerProcessing, progress: workerProgress } = useWorkerDataProcessor();
@@ -62,6 +62,16 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
   const [useWorkerOnly, setUseWorkerOnly] = useState(!!publishedSnapshot);
   const [lightOpportunities, setLightOpportunities] = useState<Opportunity[]>([]);
   const [lightActions, setLightActions] = useState<Action[]>([]);
+
+  useEffect(() => {
+    if (!publishedSnapshot) return;
+    setOpportunities(publishedSnapshot.rawOpportunities || []);
+    setActions(publishedSnapshot.rawActions || []);
+    setGoals(publishedSnapshot.goals || []);
+    setPedidos(publishedSnapshot.pedidos || []);
+    setWorkerResult(publishedSnapshot.workerResult || null);
+    setUseWorkerOnly(true);
+  }, [publishedSnapshot]);
 
   const handleLoadDemo = useCallback(() => {
     setOpportunities([]);

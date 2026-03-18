@@ -3,6 +3,7 @@ import type { GoalRecord, PedidoRecord, GoalMetrics } from '@/types/goals';
 import type { Action, Opportunity, ProcessedRecord } from './useDataProcessor';
 import { findHeaderByCandidates } from '@/lib/headerMatching';
 import { isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
+import { isLicencaServicoGoalRubrica, isRecurringGoalRubrica } from '@/lib/goalRubricas';
 
 function norm(s: string): string {
   return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -117,10 +118,6 @@ export interface AnnualGoalResult {
   matchedPedidos: MatchedPedidoExport[];
 }
 
-/**
- * Same cross-referencing as useGoalMetricsProcessor but accumulates ALL 12 months.
- * Accepts processedData as fallback when raw actions/opportunities are unavailable (e.g. cache).
- */
 export const useAnnualGoalMetrics = (
   goals: GoalRecord[],
   pedidos: PedidoRecord[],
@@ -145,11 +142,9 @@ export const useAnnualGoalMetrics = (
 
     console.log('[ANNUAL_GOAL] start', { targetYear, goals: goals.length, pedidos: pedidos.length, actions: actions.length, opportunities: opportunities.length, processedData: processedData.length, useRawDataset });
 
-    // 0) Goal user IDs
     const goalUserIds = new Set(goals.map(g => g.idUsuario));
     console.log('[ANNUAL_GOAL] Goal user IDs:', Array.from(goalUserIds));
 
-    // 1) Map user ERP ID → Name
     const userIdToName = new Map<string, string>();
     if (useRawDataset) {
       for (const action of actions as Record<string, any>[]) {
@@ -164,7 +159,6 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // 2) Eligible opp IDs from goal users
     const oppIdsWithValidCategory = new Set<string>();
     if (useRawDataset) {
       for (const action of actions as Record<string, any>[]) {
@@ -176,7 +170,6 @@ export const useAnnualGoalMetrics = (
         if (oppId) oppIdsWithValidCategory.add(oppId);
       }
     } else {
-      // Fallback: use processedData when raw datasets unavailable (cache mode)
       for (const record of processedData) {
         if (!record.oppId) continue;
         if (!isEligibleCommitmentCategory(record.categoriaCompromisso || '')) continue;
@@ -192,7 +185,6 @@ export const useAnnualGoalMetrics = (
       return null;
     }
 
-    // 3) Won opp IDs + pedido nums
     const oppIdsFechadaGanha = new Set<string>();
     const oppIdToPedidoNums = new Map<string, Set<string>>();
     if (useRawDataset) {
@@ -210,7 +202,6 @@ export const useAnnualGoalMetrics = (
         }
       }
     } else {
-      // Fallback: use processedData
       for (const record of processedData) {
         const isWon = record.etapa === 'Fechada e Ganha' || record.etapa === 'Fechada e Ganha TR';
         if (isWon && oppIdsWithValidCategory.has(record.oppId)) {
@@ -221,7 +212,6 @@ export const useAnnualGoalMetrics = (
 
     console.log('[ANNUAL_GOAL] Won opps:', oppIdsFechadaGanha.size, 'with pedido nums:', oppIdToPedidoNums.size);
 
-    // 4) Pedido lookups
     const pedidoByNumero = new Map<string, PedidoRecord[]>();
     const pedidoByOppId = new Map<string, PedidoRecord[]>();
     for (const pedido of pedidos) {
@@ -237,7 +227,6 @@ export const useAnnualGoalMetrics = (
       }
     }
 
-    // 5) Calculate metas per month (same rubrica logic as useGoalMetricsProcessor)
     const hasTotalGestao = goals.some(g => norm(g.produto).includes('total'));
     const filteredGoals = hasTotalGestao ? goals.filter(g => norm(g.produto).includes('total')) : goals;
 
@@ -249,15 +238,9 @@ export const useAnnualGoalMetrics = (
       const key = MONTH_KEYS[month];
       for (const goal of filteredGoals) {
         const metaValue = (goal[key] as number) || 0;
-        const rubricaNorm = norm(goal.rubrica);
-        if (
-          rubricaNorm.includes('setup') || rubricaNorm.includes('licenca') ||
-          rubricaNorm.includes('licencas') || rubricaNorm.includes('servicos nao recorrentes') ||
-          rubricaNorm.includes('servicos não recorrentes') ||
-          (rubricaNorm.includes('servico') && rubricaNorm.includes('nao recorrente'))
-        ) {
+        if (isLicencaServicoGoalRubrica(goal.rubrica)) {
           monthlyMetaLicServ[i] += metaValue;
-        } else if (rubricaNorm.includes('recorrente') && !rubricaNorm.includes('nao')) {
+        } else if (isRecurringGoalRubrica(goal.rubrica)) {
           monthlyMetaRecorrente[i] += metaValue;
         }
       }

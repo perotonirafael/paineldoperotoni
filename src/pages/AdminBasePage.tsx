@@ -85,7 +85,6 @@ export default function AdminBasePage() {
     setError(null);
 
     try {
-      // 1. Create batch record
       const versionName = `Base ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
       const fileCount = [oppFile, actFile, goalFile, pedidoFile].filter(Boolean).length;
 
@@ -102,7 +101,24 @@ export default function AdminBasePage() {
 
       if (batchError || !batch) throw new Error(batchError?.message || 'Erro ao criar lote');
 
-      // 2. Build snapshot with slim raw data
+      const publishedGoals = processedGoals.length > 0
+        ? processedGoals
+        : goalFile
+          ? await parseGoalsFile(goalFile)
+          : [];
+      const publishedPedidos = processedPedidos.length > 0
+        ? processedPedidos
+        : pedidoFile
+          ? await parsePedidosFile(pedidoFile)
+          : [];
+
+      if (publishedGoals.length > 0 && processedGoals.length === 0) {
+        setProcessedGoals(publishedGoals);
+      }
+      if (publishedPedidos.length > 0 && processedPedidos.length === 0) {
+        setProcessedPedidos(publishedPedidos);
+      }
+
       const slimOpportunities = (processedResult.rawOpportunities || []).map((opp: any) => ({
         'Oportunidade ID': opp['Oportunidade ID'],
         'Conta': opp['Conta'],
@@ -132,8 +148,8 @@ export default function AdminBasePage() {
 
       const snapshot = {
         workerResult: processedResult,
-        goals: processedGoals,
-        pedidos: processedPedidos,
+        goals: publishedGoals,
+        pedidos: publishedPedidos,
         rawOpportunities: slimOpportunities,
         rawActions: slimActions,
       };
