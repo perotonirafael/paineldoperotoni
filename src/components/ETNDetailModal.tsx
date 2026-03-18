@@ -568,7 +568,7 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
             </div>
             <KPICard title="Taxa de Conversão" value={`${kpis.winRate}%`} icon={<TrendingUp size={18} />} color="amber" />
             <KPICard title="Total de Agendas" value={kpis.totalAgendas.toString()} icon={<Calendar size={18} />} color="purple" />
-
+            <KPICard title="Horas Elegíveis" value={`${kpis.totalEligibleHours}h`} icon={<Calendar size={18} />} color="blue" />
           </div>
 
           {/* Seção de Metas - Comparativo completo (PRIMEIRO na grid individual) */}
