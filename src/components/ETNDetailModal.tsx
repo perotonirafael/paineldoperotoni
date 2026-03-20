@@ -125,7 +125,7 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
 
   // Compute individual annual goal metrics
   const individualAnnualGoal = useAnnualGoalMetrics(
-    individualGoals, pedidos, actions, opportunities, data, selectedYear
+    individualGoals, pedidos, actions, opportunities, data as any, selectedYear
   );
 
   const etnData = useMemo(() => {
