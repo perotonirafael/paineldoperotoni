@@ -137,6 +137,12 @@ export const useAnnualGoalMetrics = (
     const targetYear = selectedYear || (goalYears.size > 0 ? Array.from(goalYears)[0] : '');
     if (!targetYear) { console.log('[ANNUAL_GOAL] No target year'); return null; }
 
+    // If selected year has no goals, don't show the chart
+    if (!goalYears.has(targetYear)) {
+      console.log('[ANNUAL_GOAL] No goals for year', targetYear);
+      return null;
+    }
+
     const actionCols = resolveColumns(actions, 'actions');
     const oppCols = resolveColumns(opportunities, 'opportunities');
     const useRawDataset = actions.length > 0 && opportunities.length > 0;

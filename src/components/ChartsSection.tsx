@@ -464,7 +464,7 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
           fullName: d.etapa,
           value: d.value,
           count: d.count,
-          extra: `Prob. média: ${d.avgProb}%`,
+          extra: `≥ 75% probabilidade`,
         }))}
         title="FUNIL DE FORECAST"
         subtitle="Oportunidades com probabilidade ≥75% por etapa (clique para filtrar)"

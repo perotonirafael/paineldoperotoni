@@ -581,19 +581,35 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
             </div>
             <div className="p-5">
               {(() => {
-                const etnGoal = goalMetricas.find(m => m.etn === etn);
+                // Try exact match first, then normalized match
+                const normEtn = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                const etnGoal = goalMetricas.find(m => m.etn === etn) 
+                  || goalMetricas.find(m => normEtn(m.etn) === normEtn(etn));
                 const totalGoal = goalMetricas.find(m => m.etn === 'TOTAL');
-                const activeGoal = etnGoal || totalGoal;
+                
+                // For individual view: use ETN-specific data if found, build from TOTAL otherwise
+                const activeGoal = etnGoal || null;
+                const referenceGoal = totalGoal; // For meta values reference
 
-                if (!activeGoal || (activeGoal.metaLicencasServicos === 0 && activeGoal.metaRecorrente === 0)) {
+                if (!referenceGoal || (referenceGoal.metaLicencasServicos === 0 && referenceGoal.metaRecorrente === 0)) {
                   return (
                     <div className="h-32 flex flex-col items-center justify-center text-muted-foreground">
                       <Target size={24} className="mb-2 opacity-50" />
-                      <p className="text-sm">Sem dados de meta para este ETN</p>
+                      <p className="text-sm">Sem dados de meta para este período</p>
                       <p className="text-xs opacity-70 mt-1">Carregue os arquivos de Metas e Pedidos CRM</p>
                     </div>
                   );
                 }
+                
+                // Use individual realized data if available, otherwise show 0
+                const displayGoal = activeGoal || {
+                  ...referenceGoal,
+                  realLicencasServicos: 0,
+                  realLicenca: 0,
+                  realServico: 0,
+                  realRecorrente: 0,
+                  percentualAtingimento: 0,
+                };
 
                 const getColor = (pct: number): string => {
                   if (pct >= 100) return '#10b981';
