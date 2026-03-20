@@ -727,7 +727,22 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
             </div>
           </div>
 
-          {activeFilterLabel && (
+          {/* Evolução Anual da Meta Individual */}
+          {individualAnnualGoal && (individualAnnualGoal.metaLicencasServicos > 0 || individualAnnualGoal.metaRecorrente > 0) && (
+            <div className="bg-white rounded-xl border border-emerald-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-5 py-3 border-b border-emerald-200">
+                <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                  <TrendingUp size={16} className="text-emerald-600" />
+                  Evolução Anual da Meta {selectedYear ? `- ${selectedYear}` : ''}
+                </h3>
+                <p className="text-[10px] text-emerald-600 mt-0.5">Acumulado mês a mês · Meta individual</p>
+              </div>
+              <div className="p-5">
+                <AnnualGoalChart data={individualAnnualGoal} year={selectedYear} allPedidos={pedidos} />
+              </div>
+            </div>
+          )}
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
               <Filter size={14} className="text-blue-600" />
               <span className="text-blue-800">
