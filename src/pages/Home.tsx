@@ -328,6 +328,12 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
         case 'probabilidade':return r.probabilidade === chartFilter.value;
         case 'motivoPerda':return r.motivoPerda === chartFilter.value || r.motivoFechamento === chartFilter.value;
         case 'etn':return r.etn === chartFilter.value;
+        case 'forecastEtn': {
+          if (r.etn !== chartFilter.value) return false;
+          if (r.probNum < 75) return false;
+          const etapaLower = r.etapa.toLowerCase();
+          return etapaLower.includes('proposta') || etapaLower.includes('negociação') || etapaLower.includes('negociacao');
+        }
         case 'etnMissing':return r.etn === chartFilter.value;
         case 'representante':return r.representante === chartFilter.value;
         default:return true;

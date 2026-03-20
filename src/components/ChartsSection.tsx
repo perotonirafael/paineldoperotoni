@@ -303,8 +303,8 @@ function ChartsSectionInner({ data, funnelData, motivosPerda, forecastFunnel, et
                   }}
                 />
                 <Bar dataKey="value" name="Valor" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d: any) => {
-                  // BLOCO 6: Forecast por ETN → filtra tabela analítica (não abre modal)
-                  onChartClick('etn', d.fullName || d.name);
+                  // BLOCO 6: Forecast por ETN → filtra tabela analítica por ETN + prob >= 75% + Proposta/Negociação
+                  onChartClick('forecastEtn', d.fullName || d.name);
                 }}>
                   {etnTop10Clean.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
