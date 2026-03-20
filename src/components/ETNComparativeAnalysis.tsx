@@ -326,7 +326,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
   const matrixTotalPages = Math.ceil(performanceMatrix.length / MATRIX_PAGE_SIZE);
   const matrixPaged = performanceMatrix.slice(matrixPage * MATRIX_PAGE_SIZE, (matrixPage + 1) * MATRIX_PAGE_SIZE);
 
-  // Evolução de Compromissos por ETN
+  // Evolução de Compromissos por ETN - Top 5 by current month commitments
   const commitmentEvolution = useMemo(() => {
     const etnsInData = new Set<string>();
     for (const r of data) {
@@ -355,12 +355,31 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       const [mB, yB] = b.split('/').map(Number);
       return yA === yB ? mA - mB : yA - yB;
     });
+
+    // Determine current month key (MM/YYYY)
+    const now = new Date();
+    const currentMonthKey = `${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+
+    // Get top 5 ETNs by current month commitment count
+    const currentMonthCounts: { etn: string; count: number }[] = [];
+    etnMonthlyMap.forEach((mm, etn) => {
+      currentMonthCounts.push({ etn, count: mm.get(currentMonthKey) || 0 });
+    });
+    currentMonthCounts.sort((a, b) => b.count - a.count);
+    const top5Etns = new Set(currentMonthCounts.slice(0, 5).map(d => d.etn));
+
+    // Filter to top 5 ETNs only
+    const filteredEtnList = Array.from(etnMonthlyMap.keys()).filter(etn => top5Etns.has(etn));
+
     const chartData: any[] = sortedMonths.map(month => {
       const point: any = { month };
-      etnMonthlyMap.forEach((mm, etn) => { point[etn] = mm.get(month) || 0; });
+      for (const etn of filteredEtnList) {
+        const mm = etnMonthlyMap.get(etn);
+        point[etn] = mm?.get(month) || 0;
+      }
       return point;
     });
-    return { chartData, etnList: Array.from(etnMonthlyMap.keys()) };
+    return { chartData, etnList: filteredEtnList, allEtnList: Array.from(etnMonthlyMap.keys()) };
   }, [data, actions]);
 
   // Funil de Valor por Etapa

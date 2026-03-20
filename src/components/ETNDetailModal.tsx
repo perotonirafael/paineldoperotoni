@@ -581,19 +581,35 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
             </div>
             <div className="p-5">
               {(() => {
-                const etnGoal = goalMetricas.find(m => m.etn === etn);
+                // Try exact match first, then normalized match
+                const normEtn = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                const etnGoal = goalMetricas.find(m => m.etn === etn) 
+                  || goalMetricas.find(m => normEtn(m.etn) === normEtn(etn));
                 const totalGoal = goalMetricas.find(m => m.etn === 'TOTAL');
-                const activeGoal = etnGoal || totalGoal;
+                
+                // For individual view: use ETN-specific data if found, build from TOTAL otherwise
+                const activeGoal = etnGoal || null;
+                const referenceGoal = totalGoal; // For meta values reference
 
-                if (!activeGoal || (activeGoal.metaLicencasServicos === 0 && activeGoal.metaRecorrente === 0)) {
+                if (!referenceGoal || (referenceGoal.metaLicencasServicos === 0 && referenceGoal.metaRecorrente === 0)) {
                   return (
                     <div className="h-32 flex flex-col items-center justify-center text-muted-foreground">
                       <Target size={24} className="mb-2 opacity-50" />
-                      <p className="text-sm">Sem dados de meta para este ETN</p>
+                      <p className="text-sm">Sem dados de meta para este período</p>
                       <p className="text-xs opacity-70 mt-1">Carregue os arquivos de Metas e Pedidos CRM</p>
                     </div>
                   );
                 }
+                
+                // Use individual realized data if available, otherwise show 0
+                const displayGoal = activeGoal || {
+                  ...referenceGoal,
+                  realLicencasServicos: 0,
+                  realLicenca: 0,
+                  realServico: 0,
+                  realRecorrente: 0,
+                  percentualAtingimento: 0,
+                };
 
                 const getColor = (pct: number): string => {
                   if (pct >= 100) return '#10b981';
@@ -602,25 +618,30 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
                   return '#ef4444';
                 };
 
-                const pctLic = activeGoal.metaLicencasServicos > 0
-                  ? (activeGoal.realLicencasServicos / activeGoal.metaLicencasServicos) * 100
+                const pctLic = displayGoal.metaLicencasServicos > 0
+                  ? (displayGoal.realLicencasServicos / displayGoal.metaLicencasServicos) * 100
                   : 0;
-                const pctRec = activeGoal.metaRecorrente > 0
-                  ? (activeGoal.realRecorrente / activeGoal.metaRecorrente) * 100
+                const pctRec = displayGoal.metaRecorrente > 0
+                  ? (displayGoal.realRecorrente / displayGoal.metaRecorrente) * 100
                   : 0;
 
                 const chartData = [
-                  { name: 'Licenças+Serviços', Meta: activeGoal.metaLicencasServicos, Realizado: activeGoal.realLicencasServicos },
-                  { name: 'Recorrente', Meta: activeGoal.metaRecorrente, Realizado: activeGoal.realRecorrente },
+                  { name: 'Licenças+Serviços', Meta: displayGoal.metaLicencasServicos, Realizado: displayGoal.realLicencasServicos },
+                  { name: 'Recorrente', Meta: displayGoal.metaRecorrente, Realizado: displayGoal.realRecorrente },
                 ];
 
                 return (
                   <div className="space-y-4">
+                    {!activeGoal && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700">
+                        ⚠️ ETN não encontrado na base de metas. Mostrando meta do time sem realizado individual.
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                         <p className="text-[10px] font-medium text-blue-700">Licenças + Serviços</p>
-                        <p className="text-sm font-bold text-blue-900">{formatCurrency(activeGoal.realLicencasServicos)}</p>
-                        <p className="text-[10px] text-blue-600">Meta: {formatCurrency(activeGoal.metaLicencasServicos)}</p>
+                        <p className="text-sm font-bold text-blue-900">{formatCurrency(displayGoal.realLicencasServicos)}</p>
+                        <p className="text-[10px] text-blue-600">Meta: {formatCurrency(displayGoal.metaLicencasServicos)}</p>
                         <div className="mt-1 h-1.5 bg-blue-200 rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pctLic, 100)}%`, backgroundColor: getColor(pctLic) }} />
                         </div>
@@ -628,8 +649,8 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
                       </div>
                       <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
                         <p className="text-[10px] font-medium text-purple-700">Recorrente</p>
-                        <p className="text-sm font-bold text-purple-900">{formatCurrency(activeGoal.realRecorrente)}</p>
-                        <p className="text-[10px] text-purple-600">Meta: {formatCurrency(activeGoal.metaRecorrente)}</p>
+                        <p className="text-sm font-bold text-purple-900">{formatCurrency(displayGoal.realRecorrente)}</p>
+                        <p className="text-[10px] text-purple-600">Meta: {formatCurrency(displayGoal.metaRecorrente)}</p>
                         <div className="mt-1 h-1.5 bg-purple-200 rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pctRec, 100)}%`, backgroundColor: getColor(pctRec) }} />
                         </div>
@@ -637,11 +658,11 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
                       </div>
                       <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
                         <p className="text-[10px] font-medium text-emerald-700">Atingimento Ponderado</p>
-                        <p className="text-xl font-bold" style={{ color: getColor(activeGoal.percentualAtingimento) }}>{activeGoal.percentualAtingimento.toFixed(1)}%</p>
+                        <p className="text-xl font-bold" style={{ color: getColor(displayGoal.percentualAtingimento) }}>{displayGoal.percentualAtingimento.toFixed(1)}%</p>
                         <div className="mt-1 h-1.5 bg-emerald-200 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(activeGoal.percentualAtingimento, 100)}%`, backgroundColor: getColor(activeGoal.percentualAtingimento) }} />
+                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(displayGoal.percentualAtingimento, 100)}%`, backgroundColor: getColor(displayGoal.percentualAtingimento) }} />
                         </div>
-                        <p className="text-[10px] text-emerald-600 mt-0.5">{activeGoal.percentualAtingimento >= 100 ? 'Meta atingida!' : '50% Lic+Serv · 50% Rec'}</p>
+                        <p className="text-[10px] text-emerald-600 mt-0.5">{displayGoal.percentualAtingimento >= 100 ? 'Meta atingida!' : '50% Lic+Serv · 50% Rec'}</p>
                       </div>
                     </div>
                     <ResponsiveContainer width="100%" height={200}>
