@@ -1058,10 +1058,13 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
             {/* Gráfico de Metas - PRIMEIRO após filtros */}
             <div className="bg-white rounded-xl p-6 border border-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                  <Target size={20} className="text-purple-600" />
-                  Atingimento de Metas - {selectedPeriod}
-                </h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <Target size={20} className="text-purple-600" />
+                    Atingimento de Metas - {selectedPeriod}
+                  </h3>
+                  <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
+                </div>
                 <div className="flex items-center gap-3">
                   {goals.length === 0 &&
                 <div className="flex items-center gap-2">
