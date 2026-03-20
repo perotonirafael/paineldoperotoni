@@ -595,6 +595,9 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
                 Limpar
               </button>
             )}
+            <div className="ml-auto">
+              <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
+            </div>
           </div>
 
           {/* KPIs */}
