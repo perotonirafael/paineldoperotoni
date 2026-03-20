@@ -2,7 +2,11 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { X, TrendingUp, Award, Target, Calendar, Trophy, XCircle, DollarSign, Search, Filter, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, Cell, PieChart, Pie } from 'recharts';
 import { KPICard } from './KPICard';
-import type { GoalMetrics } from '@/types/goals';
+import { AnnualGoalChart } from './AnnualGoalChart';
+import { PeriodSelector } from './PeriodSelector';
+import { useAnnualGoalMetrics } from '@/hooks/useAnnualGoalMetrics';
+import type { GoalMetrics, GoalRecord, PedidoRecord } from '@/types/goals';
+import type { Opportunity } from '@/hooks/useDataProcessor';
 
 interface ProcessedRecord {
   oppId: string;
@@ -46,6 +50,10 @@ interface ETNDetailModalProps {
   actions?: Action[];
   onClose: () => void;
   goalMetricas?: GoalMetrics[];
+  goals?: GoalRecord[];
+  pedidos?: PedidoRecord[];
+  opportunities?: Opportunity[];
+  selectedYear?: string;
 }
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6'];
@@ -75,16 +83,50 @@ function normalize(val: string): string {
     .trim();
 }
 
-export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas = [] }: ETNDetailModalProps) {
+export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas = [], goals = [], pedidos = [], opportunities = [], selectedYear }: ETNDetailModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEtapa, setFilterEtapa] = useState('');
   const [filterProb, setFilterProb] = useState('');
   const [filterAno, setFilterAno] = useState('');
   const [filterMes, setFilterMes] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('Março');
   const [activeKPIFilter, setActiveKPIFilter] = useState<string | null>(null);
   const [chartFilter, setChartFilter] = useState<{ type: string; value: string } | null>(null);
   const [sortField, setSortField] = useState<SortField>('valorPrevisto');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  // Find individual ETN's userId from actions/opportunities to filter goals
+  const etnUserId = useMemo(() => {
+    const normEtn = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    // Check actions first
+    for (const a of actions) {
+      const user = trim(a['Usuario']) || trim(a['Responsavel']) || trim(a['Usuário Ação']);
+      if (user === etn || normEtn(user) === normEtn(etn)) {
+        const userId = trim(a['Id Usuário ERP'] || a['Id Usuario ERP'] || a['ID USUARIO ERP']);
+        if (userId && userId !== '0') return userId;
+      }
+    }
+    // Check opportunities
+    for (const o of (opportunities as Record<string, any>[])) {
+      const resp = trim(o['Responsável'] || o['Responsavel'] || o['PROPRIETARIO OPORTUNIDADE']);
+      if (resp === etn || normEtn(resp) === normEtn(etn)) {
+        const userId = trim(o['Id ERP Usuário'] || o['Id ERP Usuario'] || o['ID ERP PROPRIETARIO']);
+        if (userId && userId !== '0') return userId;
+      }
+    }
+    return '';
+  }, [etn, actions, opportunities]);
+
+  // Filter goals to this individual ETN
+  const individualGoals = useMemo(() => {
+    if (!etnUserId || !goals.length) return [];
+    return goals.filter(g => g.idUsuario === etnUserId);
+  }, [goals, etnUserId]);
+
+  // Compute individual annual goal metrics
+  const individualAnnualGoal = useAnnualGoalMetrics(
+    individualGoals, pedidos, actions, opportunities, data as any, selectedYear
+  );
 
   const etnData = useMemo(() => {
     return data.filter(r => r.etn === etn);
@@ -553,6 +595,9 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
                 Limpar
               </button>
             )}
+            <div className="ml-auto">
+              <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
+            </div>
           </div>
 
           {/* KPIs */}
@@ -681,6 +726,22 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
               })()}
             </div>
           </div>
+
+          {/* Evolução Anual da Meta Individual */}
+          {individualAnnualGoal && (individualAnnualGoal.metaLicencasServicos > 0 || individualAnnualGoal.metaRecorrente > 0) && (
+            <div className="bg-white rounded-xl border border-emerald-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-5 py-3 border-b border-emerald-200">
+                <h3 className="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                  <TrendingUp size={16} className="text-emerald-600" />
+                  Evolução Anual da Meta {selectedYear ? `- ${selectedYear}` : ''}
+                </h3>
+                <p className="text-[10px] text-emerald-600 mt-0.5">Acumulado mês a mês · Meta individual</p>
+              </div>
+              <div className="p-5">
+                <AnnualGoalChart data={individualAnnualGoal} year={selectedYear} allPedidos={pedidos} />
+              </div>
+            </div>
+          )}
 
           {activeFilterLabel && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">

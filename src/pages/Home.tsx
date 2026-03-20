@@ -1325,7 +1325,11 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           data={processedData}
           actions={actions}
           onClose={() => setSelectedETNDetail(null)}
-          goalMetricas={goalMetricas} />
+          goalMetricas={goalMetricas}
+          goals={goals}
+          pedidos={pedidos}
+          opportunities={opportunities}
+          selectedYear={selectedGoalYear} />
 
         }
       </div>
