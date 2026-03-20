@@ -94,6 +94,25 @@ function countBusinessDays(dates: string[]): number {
   return count;
 }
 
+const CUTOFF_DATE = new Date(2025, 0, 1).getTime(); // 01/01/2025
+
+function parseActionDate(dateStr: string): number {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('/');
+  if (parts.length >= 3) {
+    const day = parseInt(parts[0]) || 1;
+    const month = parseInt(parts[1]) || 1;
+    const year = parseInt(parts[2]) || 2000;
+    return new Date(year, month - 1, day).getTime();
+  }
+  return 0;
+}
+
+function isAfterCutoff(dateStr: string): boolean {
+  const ts = parseActionDate(dateStr);
+  return ts >= CUTOFF_DATE;
+}
+
 interface Props {
   data: ProcessedRecord[];
   actions: Action[];
