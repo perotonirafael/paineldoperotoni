@@ -177,6 +177,8 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     }
 
     for (const a of actions) {
+      const dateStr = (a['Data'] || '').toString().trim();
+      if (!isAfterCutoff(dateStr)) continue;
       const etn = (a['Usuário'] || a['Usuario'] || '').trim();
       if (!etnsInData.has(etn)) continue;
       const categoria = (a['Categoria'] || '').toString().trim();
