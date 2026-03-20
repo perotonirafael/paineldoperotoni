@@ -338,6 +338,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       if (!isEligibleCommitmentCategory(categoria)) continue;
       const date = (a['Data'] || '').trim();
       if (!date) continue;
+      if (!isAfterCutoff(date)) continue;
       const parts = date.split('/');
       if (parts.length < 3) continue;
       const key = `${parts[1]}/${parts[2]}`;
