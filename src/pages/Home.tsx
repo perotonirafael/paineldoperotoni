@@ -328,6 +328,12 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
         case 'probabilidade':return r.probabilidade === chartFilter.value;
         case 'motivoPerda':return r.motivoPerda === chartFilter.value || r.motivoFechamento === chartFilter.value;
         case 'etn':return r.etn === chartFilter.value;
+        case 'forecastEtn': {
+          if (r.etn !== chartFilter.value) return false;
+          if (r.probNum < 75) return false;
+          const etapaLower = r.etapa.toLowerCase();
+          return etapaLower.includes('proposta') || etapaLower.includes('negociação') || etapaLower.includes('negociacao');
+        }
         case 'etnMissing':return r.etn === chartFilter.value;
         case 'representante':return r.representante === chartFilter.value;
         default:return true;
@@ -1041,7 +1047,6 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
                 <MultiSelectDropdown label="Conta" options={filterOptions.contas} selected={selAccounts} onChange={setSelAccounts} />
                 <MultiSelectDropdown label="Tipo Op." options={filterOptions.tipos} selected={selTypes} onChange={setSelTypes} />
                 <MultiSelectDropdown label="Produto" options={filterOptions.subtipos || []} selected={selSubtipos} onChange={setSelSubtipos} />
-                <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
               </div>
             </div>
 
@@ -1050,7 +1055,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                 <AlertTriangle className="text-amber-600" size={18} />
                 <span className="text-sm text-amber-800">
-                  Tabela filtrada por: <strong>{chartFilter.field === 'etapa' ? 'Etapa' : chartFilter.field === 'motivoPerda' ? 'Motivo de Perda' : chartFilter.field === 'etn' ? 'ETN' : chartFilter.field === 'representante' ? 'Representante' : chartFilter.field}</strong> = <strong>{chartFilter.value}</strong>
+                  Tabela filtrada por: <strong>{chartFilter.field === 'etapa' ? 'Etapa' : chartFilter.field === 'motivoPerda' ? 'Motivo de Perda' : chartFilter.field === 'etn' ? 'ETN' : chartFilter.field === 'forecastEtn' ? 'ETN (Forecast ≥75%)' : chartFilter.field === 'representante' ? 'Representante' : chartFilter.field}</strong> = <strong>{chartFilter.value}</strong>
                 </span>
                 <button onClick={() => setChartFilter(null)} className="ml-auto text-xs font-semibold text-amber-700 hover:text-amber-900 underline">Limpar</button>
               </div>
@@ -1059,10 +1064,13 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
             {/* Gráfico de Metas - PRIMEIRO após filtros */}
             <div className="bg-white rounded-xl p-6 border border-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                  <Target size={20} className="text-purple-600" />
-                  Atingimento de Metas - {selectedPeriod}
-                </h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <Target size={20} className="text-purple-600" />
+                    Atingimento de Metas - {selectedPeriod}
+                  </h3>
+                  <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
+                </div>
                 <div className="flex items-center gap-3">
                   {goals.length === 0 &&
                 <div className="flex items-center gap-2">
@@ -1082,6 +1090,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
             </div>
 
             {/* Evolução Anual da Meta - não influenciado por filtros de período */}
+            {annualGoalData && (annualGoalData.metaLicencasServicos > 0 || annualGoalData.metaRecorrente > 0) && (
             <div className="bg-white rounded-xl p-6 border border-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -1092,6 +1101,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
               </div>
               <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} allPedidos={pedidos} />
             </div>
+            )}
 
             {/* Charts */}
             <ChartsSection

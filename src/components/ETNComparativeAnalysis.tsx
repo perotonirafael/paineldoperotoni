@@ -94,6 +94,25 @@ function countBusinessDays(dates: string[]): number {
   return count;
 }
 
+const CUTOFF_DATE = new Date(2025, 0, 1).getTime(); // 01/01/2025
+
+function parseActionDate(dateStr: string): number {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('/');
+  if (parts.length >= 3) {
+    const day = parseInt(parts[0]) || 1;
+    const month = parseInt(parts[1]) || 1;
+    const year = parseInt(parts[2]) || 2000;
+    return new Date(year, month - 1, day).getTime();
+  }
+  return 0;
+}
+
+function isAfterCutoff(dateStr: string): boolean {
+  const ts = parseActionDate(dateStr);
+  return ts >= CUTOFF_DATE;
+}
+
 interface Props {
   data: ProcessedRecord[];
   actions: Action[];
@@ -158,6 +177,8 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     }
 
     for (const a of actions) {
+      const dateStr = (a['Data'] || '').toString().trim();
+      if (!isAfterCutoff(dateStr)) continue;
       const etn = (a['Usuário'] || a['Usuario'] || '').trim();
       if (!etnsInData.has(etn)) continue;
       const categoria = (a['Categoria'] || '').toString().trim();
@@ -200,6 +221,8 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     }
 
     for (const a of actions) {
+      const dateStr = (a['Data'] || '').toString().trim();
+      if (!isAfterCutoff(dateStr)) continue;
       const etn = (a['Usuário'] || a['Usuario'] || '').trim();
       if (!etnsInData.has(etn)) continue;
       const durStr = (a['Duracao'] || a['Duração'] || '').toString().trim();
@@ -266,6 +289,8 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     const agendasByETN = new Map<string, number>();
     const durationByETN = new Map<string, number>();
     for (const a of actions) {
+      const dateStr = (a['Data'] || '').toString().trim();
+      if (!isAfterCutoff(dateStr)) continue;
       const etn = (a['Usuário'] || a['Usuario'] || '').trim();
       agendasByETN.set(etn, (agendasByETN.get(etn) || 0) + 1);
       const categoria = (a['Categoria'] || '').toString().trim();
@@ -315,6 +340,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       if (!isEligibleCommitmentCategory(categoria)) continue;
       const date = (a['Data'] || '').trim();
       if (!date) continue;
+      if (!isAfterCutoff(date)) continue;
       const parts = date.split('/');
       if (parts.length < 3) continue;
       const key = `${parts[1]}/${parts[2]}`;
