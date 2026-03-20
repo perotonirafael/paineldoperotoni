@@ -743,6 +743,7 @@ export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas 
             </div>
           )}
 
+          {activeFilterLabel && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 text-sm">
               <Filter size={14} className="text-blue-600" />
               <span className="text-blue-800">
