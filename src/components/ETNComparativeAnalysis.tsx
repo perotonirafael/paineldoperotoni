@@ -559,8 +559,9 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
           </div>
           <DateRangeFooter data={data} />
         </div>
+      )}
 
-        {/* Heatmap de Utilização Mensal */}
+      {/* Heatmap de Utilização Mensal */}
         {heatmapMonths.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
