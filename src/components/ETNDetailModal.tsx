@@ -50,6 +50,10 @@ interface ETNDetailModalProps {
   actions?: Action[];
   onClose: () => void;
   goalMetricas?: GoalMetrics[];
+  goals?: GoalRecord[];
+  pedidos?: PedidoRecord[];
+  opportunities?: Opportunity[];
+  selectedYear?: string;
 }
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6'];
