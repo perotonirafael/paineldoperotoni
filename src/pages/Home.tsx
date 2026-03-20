@@ -1041,7 +1041,6 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
                 <MultiSelectDropdown label="Conta" options={filterOptions.contas} selected={selAccounts} onChange={setSelAccounts} />
                 <MultiSelectDropdown label="Tipo Op." options={filterOptions.tipos} selected={selTypes} onChange={setSelTypes} />
                 <MultiSelectDropdown label="Produto" options={filterOptions.subtipos || []} selected={selSubtipos} onChange={setSelSubtipos} />
-                <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={setSelectedPeriod} />
               </div>
             </div>
 
