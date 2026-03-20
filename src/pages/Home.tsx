@@ -1084,6 +1084,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
             </div>
 
             {/* Evolução Anual da Meta - não influenciado por filtros de período */}
+            {annualGoalData && (annualGoalData.metaLicencasServicos > 0 || annualGoalData.metaRecorrente > 0) && (
             <div className="bg-white rounded-xl p-6 border border-border shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -1094,6 +1095,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
               </div>
               <AnnualGoalChart data={annualGoalData} year={selectedGoalYear} allPedidos={pedidos} />
             </div>
+            )}
 
             {/* Charts */}
             <ChartsSection
