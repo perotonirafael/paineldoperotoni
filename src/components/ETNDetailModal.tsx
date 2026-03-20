@@ -2,7 +2,11 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { X, TrendingUp, Award, Target, Calendar, Trophy, XCircle, DollarSign, Search, Filter, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, Cell, PieChart, Pie } from 'recharts';
 import { KPICard } from './KPICard';
-import type { GoalMetrics } from '@/types/goals';
+import { AnnualGoalChart } from './AnnualGoalChart';
+import { PeriodSelector } from './PeriodSelector';
+import { useAnnualGoalMetrics } from '@/hooks/useAnnualGoalMetrics';
+import type { GoalMetrics, GoalRecord, PedidoRecord } from '@/types/goals';
+import type { Opportunity } from '@/hooks/useDataProcessor';
 
 interface ProcessedRecord {
   oppId: string;
