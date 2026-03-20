@@ -1055,7 +1055,7 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
                 <AlertTriangle className="text-amber-600" size={18} />
                 <span className="text-sm text-amber-800">
-                  Tabela filtrada por: <strong>{chartFilter.field === 'etapa' ? 'Etapa' : chartFilter.field === 'motivoPerda' ? 'Motivo de Perda' : chartFilter.field === 'etn' ? 'ETN' : chartFilter.field === 'representante' ? 'Representante' : chartFilter.field}</strong> = <strong>{chartFilter.value}</strong>
+                  Tabela filtrada por: <strong>{chartFilter.field === 'etapa' ? 'Etapa' : chartFilter.field === 'motivoPerda' ? 'Motivo de Perda' : chartFilter.field === 'etn' ? 'ETN' : chartFilter.field === 'forecastEtn' ? 'ETN (Forecast ≥75%)' : chartFilter.field === 'representante' ? 'Representante' : chartFilter.field}</strong> = <strong>{chartFilter.value}</strong>
                 </span>
                 <button onClick={() => setChartFilter(null)} className="ml-auto text-xs font-semibold text-amber-700 hover:text-amber-900 underline">Limpar</button>
               </div>
