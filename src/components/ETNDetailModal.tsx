@@ -83,16 +83,50 @@ function normalize(val: string): string {
     .trim();
 }
 
-export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas = [] }: ETNDetailModalProps) {
+export function ETNDetailModal({ etn, data, actions = [], onClose, goalMetricas = [], goals = [], pedidos = [], opportunities = [], selectedYear }: ETNDetailModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEtapa, setFilterEtapa] = useState('');
   const [filterProb, setFilterProb] = useState('');
   const [filterAno, setFilterAno] = useState('');
   const [filterMes, setFilterMes] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('Março');
   const [activeKPIFilter, setActiveKPIFilter] = useState<string | null>(null);
   const [chartFilter, setChartFilter] = useState<{ type: string; value: string } | null>(null);
   const [sortField, setSortField] = useState<SortField>('valorPrevisto');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  // Find individual ETN's userId from actions/opportunities to filter goals
+  const etnUserId = useMemo(() => {
+    const normEtn = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    // Check actions first
+    for (const a of actions) {
+      const user = trim(a['Usuario']) || trim(a['Responsavel']) || trim(a['Usuário Ação']);
+      if (user === etn || normEtn(user) === normEtn(etn)) {
+        const userId = trim(a['Id Usuário ERP'] || a['Id Usuario ERP'] || a['ID USUARIO ERP']);
+        if (userId && userId !== '0') return userId;
+      }
+    }
+    // Check opportunities
+    for (const o of (opportunities as Record<string, any>[])) {
+      const resp = trim(o['Responsável'] || o['Responsavel'] || o['PROPRIETARIO OPORTUNIDADE']);
+      if (resp === etn || normEtn(resp) === normEtn(etn)) {
+        const userId = trim(o['Id ERP Usuário'] || o['Id ERP Usuario'] || o['ID ERP PROPRIETARIO']);
+        if (userId && userId !== '0') return userId;
+      }
+    }
+    return '';
+  }, [etn, actions, opportunities]);
+
+  // Filter goals to this individual ETN
+  const individualGoals = useMemo(() => {
+    if (!etnUserId || !goals.length) return [];
+    return goals.filter(g => g.idUsuario === etnUserId);
+  }, [goals, etnUserId]);
+
+  // Compute individual annual goal metrics
+  const individualAnnualGoal = useAnnualGoalMetrics(
+    individualGoals, pedidos, actions, opportunities, data, selectedYear
+  );
 
   const etnData = useMemo(() => {
     return data.filter(r => r.etn === etn);
