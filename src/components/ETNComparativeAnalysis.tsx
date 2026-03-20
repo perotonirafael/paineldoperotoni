@@ -212,9 +212,9 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       .sort((a, b) => b.totalHours - a.totalHours);
   }, [data, actions, oppEtapaMap]);
 
-  // Chart 2: Taxa de Disponibilidade
+  // Chart 2: Taxa de Disponibilidade (gauge + heatmap data)
   const etnAvailability = useMemo(() => {
-    const etnMap = new Map<string, { totalHours: number; dates: string[] }>();
+    const etnMap = new Map<string, { totalHours: number; dates: string[]; monthlyHours: Map<string, { hours: number; dates: Set<string> }> }>();
     const etnsInData = new Set<string>();
     for (const r of data) {
       if (r.etn && r.etn !== 'Sem Agenda') etnsInData.add(r.etn);
@@ -229,10 +229,20 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       const hours = parseDuration(durStr);
       const date = (a['Data'] || '').toString().trim();
 
-      if (!etnMap.has(etn)) etnMap.set(etn, { totalHours: 0, dates: [] });
+      if (!etnMap.has(etn)) etnMap.set(etn, { totalHours: 0, dates: [], monthlyHours: new Map() });
       const stats = etnMap.get(etn)!;
       stats.totalHours += hours;
-      if (date) stats.dates.push(date);
+      if (date) {
+        stats.dates.push(date);
+        const parts = date.split('/');
+        if (parts.length >= 3) {
+          const monthKey = `${parts[1]}/${parts[2]}`;
+          if (!stats.monthlyHours.has(monthKey)) stats.monthlyHours.set(monthKey, { hours: 0, dates: new Set() });
+          const m = stats.monthlyHours.get(monthKey)!;
+          m.hours += hours;
+          m.dates.add(date);
+        }
+      }
     }
 
     return Array.from(etnMap.entries())
@@ -241,6 +251,12 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
         const bizDays = countBusinessDays(s.dates);
         const capacidade = bizDays * 6;
         const utilizacao = capacidade > 0 ? parseFloat(((s.totalHours / capacidade) * 100).toFixed(1)) : 0;
+        const monthly: Record<string, number> = {};
+        s.monthlyHours.forEach((mData, monthKey) => {
+          const monthBizDays = countBusinessDays(Array.from(mData.dates));
+          const monthCap = monthBizDays * 6;
+          monthly[monthKey] = monthCap > 0 ? parseFloat(((mData.hours / monthCap) * 100).toFixed(1)) : 0;
+        });
         return {
           etn,
           horasRegistradas: parseFloat(s.totalHours.toFixed(1)),
@@ -248,10 +264,21 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
           disponibilidade: parseFloat(Math.max(0, capacidade - s.totalHours).toFixed(1)),
           utilizacao,
           diasUteis: bizDays,
+          monthly,
         };
       })
       .sort((a, b) => b.utilizacao - a.utilizacao);
   }, [data, actions]);
+
+  const heatmapMonths = useMemo(() => {
+    const allMonths = new Set<string>();
+    etnAvailability.forEach(e => Object.keys(e.monthly).forEach(m => allMonths.add(m)));
+    return Array.from(allMonths).sort((a, b) => {
+      const [mA, yA] = a.split('/').map(Number);
+      const [mB, yB] = b.split('/').map(Number);
+      return yA === yB ? mA - mB : yA - yB;
+    });
+  }, [etnAvailability]);
 
   // Matriz de Performance ETN
   const performanceMatrix = useMemo(() => {
@@ -449,40 +476,60 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
-            Taxa de Disponibilidade do Time
+            Disponibilidade do Time — Velocímetro por ETN
           </h3>
-          <p className="text-xs text-gray-500 mb-4">
-            Comparação entre horas registradas e capacidade disponível (6h/dia útil, seg–sex)
+          <p className="text-xs text-muted-foreground mb-4">
+            Utilização da capacidade (base: 6h/dia útil). Verde = disponível, Vermelho = sobrecarregado.
           </p>
-          <div style={{ height: Math.max(300, Math.min(etnAvailability.length, 10) * 50) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={etnAvailability.slice(0, 10)} layout="vertical" margin={{ left: 10, right: 80 }} barSize={20}>
-                <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
-                <YAxis type="category" dataKey="etn" width={170} tick={{ fill: '#374151', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} />
-                <Tooltip
-                  content={({ active, payload }: any) => {
-                    if (!active || !payload?.length) return null;
-                    const d = payload[0].payload;
-                    return (
-                      <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-lg text-xs">
-                        <p className="font-bold text-gray-800 mb-1">{d.etn}</p>
-                        <p className="text-gray-600">Horas Registradas: <span className="font-bold text-blue-600">{d.horasRegistradas}h</span></p>
-                        <p className="text-gray-600">Capacidade (6h/dia): <span className="font-bold text-gray-700">{d.capacidade}h</span></p>
-                        <p className="text-gray-600">Disponível: <span className="font-bold text-amber-600">{d.disponibilidade}h</span></p>
-                        <p className="text-gray-600">Utilização: <span className="font-bold text-emerald-600">{d.utilizacao}%</span></p>
-                        <p className="text-gray-600">Dias Úteis: <span className="font-bold">{d.diasUteis}</span></p>
-                      </div>
-                    );
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="horasRegistradas" name="Horas Registradas" fill="#3b82f6" stackId="cap" />
-                <Bar dataKey="disponibilidade" name="Horas Disponíveis" fill="#e5e7eb" stackId="cap" radius={[0, 6, 6, 0]}>
-                  <LabelList dataKey="utilizacao" position="right" fill="#374151" fontSize={10} formatter={(v: number) => `${v}%`} />
-                </Bar>
-              </ComposedChart>
-            </ResponsiveContainer>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {etnAvailability.map((d) => {
+              const pct = Math.min(d.utilizacao, 150);
+              const angle = -135 + (pct / 150) * 270;
+              const getColor = (u: number) => u <= 60 ? '#10b981' : u <= 85 ? '#f59e0b' : u <= 100 ? '#3b82f6' : '#ef4444';
+              const color = getColor(d.utilizacao);
+              const r = 44;
+              const startAngle = -135;
+              const endAngle = 135;
+              const bgStart = ((startAngle - 90) * Math.PI) / 180;
+              const bgEnd = ((endAngle - 90) * Math.PI) / 180;
+              const bgX1 = 50 + r * Math.cos(bgStart);
+              const bgY1 = 50 + r * Math.sin(bgStart);
+              const bgX2 = 50 + r * Math.cos(bgEnd);
+              const bgY2 = 50 + r * Math.sin(bgEnd);
+              const valAngle = ((angle - 90) * Math.PI) / 180;
+              const valX = 50 + r * Math.cos(valAngle);
+              const valY = 50 + r * Math.sin(valAngle);
+              const sweepDeg = angle - startAngle;
+              const largeArcBg = 1;
+              const largeArcVal = sweepDeg > 180 ? 1 : 0;
+
+              return (
+                <div key={d.etn} className="flex flex-col items-center p-3 rounded-lg border border-border bg-card hover:shadow-md transition-shadow">
+                  <svg viewBox="0 0 100 100" className="w-24 h-24">
+                    {/* Background arc */}
+                    <path d={`M ${bgX1} ${bgY1} A ${r} ${r} 0 ${largeArcBg} 1 ${bgX2} ${bgY2}`}
+                      fill="none" stroke="hsl(var(--muted))" strokeWidth="8" strokeLinecap="round" />
+                    {/* Value arc */}
+                    {pct > 0 && (
+                      <path d={`M ${bgX1} ${bgY1} A ${r} ${r} 0 ${largeArcVal} 1 ${valX} ${valY}`}
+                        fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" />
+                    )}
+                    {/* Needle dot */}
+                    <circle cx={valX} cy={valY} r="3" fill={color} />
+                    {/* Center text */}
+                    <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
+                      className="text-[13px] font-bold" fill={color}>{d.utilizacao}%</text>
+                    <text x="50" y="64" textAnchor="middle" className="text-[7px]" fill="hsl(155,15%,40%)">{d.horasRegistradas}h / {d.capacidade}h</text>
+                  </svg>
+                  <p className="text-xs font-medium text-foreground mt-1 text-center leading-tight truncate w-full" title={d.etn}>
+                    {d.etn.length > 18 ? d.etn.slice(0, 18) + '…' : d.etn}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{d.diasUteis} dias úteis</p>
+                </div>
+              );
+            })}
           </div>
+          {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
             {(() => {
               const totalReg = etnAvailability.reduce((s, d) => s + d.horasRegistradas, 0);
@@ -494,9 +541,9 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                     <p className="text-lg font-bold text-blue-700">{totalReg.toFixed(0)}h</p>
                     <p className="text-[10px] text-blue-600 font-medium">Total Registrado</p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
-                    <p className="text-lg font-bold text-gray-700">{totalCap.toFixed(0)}h</p>
-                    <p className="text-[10px] text-gray-600 font-medium">Capacidade Total</p>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center border border-border">
+                    <p className="text-lg font-bold text-foreground">{totalCap.toFixed(0)}h</p>
+                    <p className="text-[10px] text-muted-foreground font-medium">Capacidade Total</p>
                   </div>
                   <div className="bg-emerald-50 rounded-lg p-3 text-center border border-emerald-100">
                     <p className="text-lg font-bold text-emerald-700">{avgUtil}%</p>
@@ -513,6 +560,58 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
           <DateRangeFooter data={data} />
         </div>
       )}
+
+      {/* Heatmap de Utilização Mensal */}
+        {heatmapMonths.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-amber-600" />
+            Mapa de Calor — Utilização Mensal por ETN
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Cores: 🟢 ≤60% disponível · 🟡 61-85% bom · 🔵 86-100% saturado · 🔴 &gt;100% sobrecarregado
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-foreground bg-muted/50 sticky left-0 z-10">ETN</th>
+                  {heatmapMonths.map(m => {
+                    const [mm, yy] = m.split('/');
+                    const mNames = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                    return <th key={m} className="px-2 py-2 text-center font-medium text-muted-foreground bg-muted/50 whitespace-nowrap">{mNames[parseInt(mm)]}/{yy.slice(2)}</th>;
+                  })}
+                  <th className="px-3 py-2 text-center font-semibold text-foreground bg-muted/50">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {etnAvailability.map((d) => (
+                  <tr key={d.etn} className="border-t border-border/50">
+                    <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card z-10">{d.etn.length > 20 ? d.etn.slice(0, 20) + '…' : d.etn}</td>
+                    {heatmapMonths.map(m => {
+                      const val = d.monthly[m] ?? null;
+                      const bg = val === null ? 'bg-muted/30'
+                        : val <= 60 ? 'bg-emerald-100 text-emerald-800'
+                        : val <= 85 ? 'bg-amber-100 text-amber-800'
+                        : val <= 100 ? 'bg-blue-100 text-blue-800'
+                        : 'bg-red-100 text-red-800';
+                      return (
+                        <td key={m} className={`px-2 py-2 text-center font-mono font-semibold ${bg} rounded-sm`}>
+                          {val !== null ? `${val}%` : '—'}
+                        </td>
+                      );
+                    })}
+                    <td className={`px-3 py-2 text-center font-mono font-bold ${
+                      d.utilizacao <= 60 ? 'text-emerald-700' : d.utilizacao <= 85 ? 'text-amber-700' : d.utilizacao <= 100 ? 'text-blue-700' : 'text-red-700'
+                    }`}>{d.utilizacao}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <DateRangeFooter data={data} />
+        </div>
+        )}
 
       {/* Matriz de Performance */}
       <div className="bg-white rounded-lg shadow p-6">
