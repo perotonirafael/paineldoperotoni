@@ -212,9 +212,9 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       .sort((a, b) => b.totalHours - a.totalHours);
   }, [data, actions, oppEtapaMap]);
 
-  // Chart 2: Taxa de Disponibilidade
+  // Chart 2: Taxa de Disponibilidade (gauge + heatmap data)
   const etnAvailability = useMemo(() => {
-    const etnMap = new Map<string, { totalHours: number; dates: string[] }>();
+    const etnMap = new Map<string, { totalHours: number; dates: string[]; monthlyHours: Map<string, { hours: number; dates: Set<string> }> }>();
     const etnsInData = new Set<string>();
     for (const r of data) {
       if (r.etn && r.etn !== 'Sem Agenda') etnsInData.add(r.etn);
@@ -229,10 +229,20 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       const hours = parseDuration(durStr);
       const date = (a['Data'] || '').toString().trim();
 
-      if (!etnMap.has(etn)) etnMap.set(etn, { totalHours: 0, dates: [] });
+      if (!etnMap.has(etn)) etnMap.set(etn, { totalHours: 0, dates: [], monthlyHours: new Map() });
       const stats = etnMap.get(etn)!;
       stats.totalHours += hours;
-      if (date) stats.dates.push(date);
+      if (date) {
+        stats.dates.push(date);
+        const parts = date.split('/');
+        if (parts.length >= 3) {
+          const monthKey = `${parts[1]}/${parts[2]}`;
+          if (!stats.monthlyHours.has(monthKey)) stats.monthlyHours.set(monthKey, { hours: 0, dates: new Set() });
+          const m = stats.monthlyHours.get(monthKey)!;
+          m.hours += hours;
+          m.dates.add(date);
+        }
+      }
     }
 
     return Array.from(etnMap.entries())
@@ -241,6 +251,12 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
         const bizDays = countBusinessDays(s.dates);
         const capacidade = bizDays * 6;
         const utilizacao = capacidade > 0 ? parseFloat(((s.totalHours / capacidade) * 100).toFixed(1)) : 0;
+        const monthly: Record<string, number> = {};
+        s.monthlyHours.forEach((mData, monthKey) => {
+          const monthBizDays = countBusinessDays(Array.from(mData.dates));
+          const monthCap = monthBizDays * 6;
+          monthly[monthKey] = monthCap > 0 ? parseFloat(((mData.hours / monthCap) * 100).toFixed(1)) : 0;
+        });
         return {
           etn,
           horasRegistradas: parseFloat(s.totalHours.toFixed(1)),
@@ -248,10 +264,21 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
           disponibilidade: parseFloat(Math.max(0, capacidade - s.totalHours).toFixed(1)),
           utilizacao,
           diasUteis: bizDays,
+          monthly,
         };
       })
       .sort((a, b) => b.utilizacao - a.utilizacao);
   }, [data, actions]);
+
+  const heatmapMonths = useMemo(() => {
+    const allMonths = new Set<string>();
+    etnAvailability.forEach(e => Object.keys(e.monthly).forEach(m => allMonths.add(m)));
+    return Array.from(allMonths).sort((a, b) => {
+      const [mA, yA] = a.split('/').map(Number);
+      const [mB, yB] = b.split('/').map(Number);
+      return yA === yB ? mA - mB : yA - yB;
+    });
+  }, [etnAvailability]);
 
   // Matriz de Performance ETN
   const performanceMatrix = useMemo(() => {
