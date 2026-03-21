@@ -97,7 +97,7 @@ function parseDuration(durStr: string): number {
 }
 
 function countBusinessDays(dates: string[]): number {
-  let minDate = Infinity, maxDate = -Infinity;
+  let minTs = Infinity, maxTs = -Infinity;
   for (const d of dates) {
     const parts = d.split('/');
     if (parts.length >= 3) {
@@ -105,18 +105,25 @@ function countBusinessDays(dates: string[]): number {
       const month = parseInt(parts[1]) || 1;
       const year = parseInt(parts[2]) || 2025;
       const ts = new Date(year, month - 1, day).getTime();
-      if (ts < minDate) minDate = ts;
-      if (ts > maxDate) maxDate = ts;
+      if (ts < minTs) minTs = ts;
+      if (ts > maxTs) maxTs = ts;
     }
   }
-  if (minDate === Infinity) return 0;
-  let count = 0;
-  const oneDay = 86400000;
-  for (let t = minDate; t <= maxDate; t += oneDay) {
-    const dow = new Date(t).getDay();
-    if (dow >= 1 && dow <= 5) count++;
+  if (minTs === Infinity) return 0;
+  // Mathematical business days calculation instead of day-by-day loop
+  const startDate = new Date(minTs);
+  const endDate = new Date(maxTs);
+  const totalDays = Math.round((maxTs - minTs) / 86400000) + 1;
+  if (totalDays <= 0) return 0;
+  const fullWeeks = Math.floor(totalDays / 7);
+  const remainDays = totalDays % 7;
+  let bizDays = fullWeeks * 5;
+  const startDow = startDate.getDay(); // 0=Sun
+  for (let i = 0; i < remainDays; i++) {
+    const dow = (startDow + i) % 7;
+    if (dow >= 1 && dow <= 5) bizDays++;
   }
-  return count;
+  return bizDays;
 }
 
 const CUTOFF_DATE = new Date(2025, 0, 1).getTime();
