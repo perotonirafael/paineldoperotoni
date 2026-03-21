@@ -910,6 +910,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                     return <th key={m} className="px-2 py-2 text-center font-medium text-muted-foreground bg-muted/50 whitespace-nowrap">{MONTH_NAMES[parseInt(mm)]}/{yy.slice(2)}</th>;
                   })}
                   <th className="px-3 py-2 text-center font-semibold text-foreground bg-muted/50">Média</th>
+                  <th className="px-3 py-2 text-center font-semibold text-foreground bg-muted/50" title="Desvio padrão — menor = mais constante">σ</th>
                 </tr>
               </thead>
               <tbody>
