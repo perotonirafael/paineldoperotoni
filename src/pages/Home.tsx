@@ -31,15 +31,15 @@ interface HomeProps {
     workerResult: any;
     goals: any[];
     pedidos: any[];
-    rawOpportunities: any[];
-    rawActions: any[];
+    rawOpportunities?: any[];
+    rawActions?: any[];
   };
   hideHeader?: boolean;
 }
 
 export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(publishedSnapshot?.rawOpportunities || []);
-  const [actions, setActions] = useState<Action[]>(publishedSnapshot?.rawActions || []);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [actions, setActions] = useState<Action[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [oppFile, setOppFile] = useState<File | null>(null);
@@ -65,8 +65,8 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
 
   useEffect(() => {
     if (!publishedSnapshot) return;
-    setOpportunities(publishedSnapshot.rawOpportunities || []);
-    setActions(publishedSnapshot.rawActions || []);
+    setOpportunities([]);
+    setActions([]);
     setGoals(publishedSnapshot.goals || []);
     setPedidos(publishedSnapshot.pedidos || []);
     setWorkerResult(publishedSnapshot.workerResult || null);
