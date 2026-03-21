@@ -31,8 +31,8 @@ interface HomeProps {
     workerResult: any;
     goals: any[];
     pedidos: any[];
-    rawOpportunities: any[];
-    rawActions: any[];
+    rawOpportunities?: any[];
+    rawActions?: any[];
   };
   hideHeader?: boolean;
 }
