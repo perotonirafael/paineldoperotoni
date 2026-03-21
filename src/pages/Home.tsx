@@ -1313,13 +1313,16 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
 
         {/* Análise Comparativa de ETNs */}
         {processedData.length > 0 &&
+        <Suspense fallback={<div className="text-center py-10 text-muted-foreground"><Loader className="animate-spin mx-auto mb-2" size={24} />Carregando análise comparativa...</div>}>
         <div className="mt-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">Análise Comparativa de ETNs</h2>
             <ETNComparativeAnalysis data={filteredData} actions={filteredActions} />
           </div>
+        </Suspense>
         }
         {/* Modal de Detalhe do ETN */}
         {selectedETNDetail &&
+        <Suspense fallback={null}>
         <ETNDetailModal
           etn={selectedETNDetail}
           data={processedData}
@@ -1330,6 +1333,8 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           pedidos={pedidos}
           opportunities={opportunities}
           selectedYear={selectedGoalYear} />
+        </Suspense>
+        }
 
         }
       </div>
