@@ -3,7 +3,7 @@ import {
   Loader, BarChart3, Trophy, XCircle, FileText, RotateCcw,
   Calendar, AlertTriangle, Search, Database, Trash2, Clock, ChevronDown } from
 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition, lazy, Suspense } from 'react';
 import { useDataProcessor, type Opportunity, type Action, type ProcessedRecord, type MissingAgendaRecord } from '@/hooks/useDataProcessor';
 import { useFileProcessor } from '@/hooks/useFileProcessor';
 import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
