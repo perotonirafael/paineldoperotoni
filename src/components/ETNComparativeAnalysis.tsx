@@ -957,6 +957,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                   <td className={`px-3 py-2 text-center font-mono font-bold ${getUtilBg(avgUtilAll)}`}>
                     {avgUtilAll}%
                   </td>
+                  <td className="px-3 py-2 text-center text-muted-foreground">—</td>
                 </tr>
               </tbody>
             </table>
