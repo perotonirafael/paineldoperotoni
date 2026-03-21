@@ -1335,8 +1335,6 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           selectedYear={selectedGoalYear} />
         </Suspense>
         }
-
-        }
       </div>
     </div>);
 
