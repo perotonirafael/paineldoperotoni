@@ -97,7 +97,7 @@ function parseDuration(durStr: string): number {
 }
 
 function countBusinessDays(dates: string[]): number {
-  let minDate = Infinity, maxDate = -Infinity;
+  let minTs = Infinity, maxTs = -Infinity;
   for (const d of dates) {
     const parts = d.split('/');
     if (parts.length >= 3) {
@@ -105,18 +105,25 @@ function countBusinessDays(dates: string[]): number {
       const month = parseInt(parts[1]) || 1;
       const year = parseInt(parts[2]) || 2025;
       const ts = new Date(year, month - 1, day).getTime();
-      if (ts < minDate) minDate = ts;
-      if (ts > maxDate) maxDate = ts;
+      if (ts < minTs) minTs = ts;
+      if (ts > maxTs) maxTs = ts;
     }
   }
-  if (minDate === Infinity) return 0;
-  let count = 0;
-  const oneDay = 86400000;
-  for (let t = minDate; t <= maxDate; t += oneDay) {
-    const dow = new Date(t).getDay();
-    if (dow >= 1 && dow <= 5) count++;
+  if (minTs === Infinity) return 0;
+  // Mathematical business days calculation instead of day-by-day loop
+  const startDate = new Date(minTs);
+  const endDate = new Date(maxTs);
+  const totalDays = Math.round((maxTs - minTs) / 86400000) + 1;
+  if (totalDays <= 0) return 0;
+  const fullWeeks = Math.floor(totalDays / 7);
+  const remainDays = totalDays % 7;
+  let bizDays = fullWeeks * 5;
+  const startDow = startDate.getDay(); // 0=Sun
+  for (let i = 0; i < remainDays; i++) {
+    const dow = (startDow + i) % 7;
+    if (dow >= 1 && dow <= 5) bizDays++;
   }
-  return count;
+  return bizDays;
 }
 
 const CUTOFF_DATE = new Date(2025, 0, 1).getTime();
@@ -343,7 +350,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
   // 2. Disponibilidade (refactored to bar chart + table)
   // ════════════════════════════════════════════
   const etnAvailabilityRaw = useMemo(() => {
-    const etnMap = new Map<string, { totalHours: number; dates: string[]; monthlyHours: Map<string, { hours: number; dates: Set<string> }> }>();
+    const etnMap = new Map<string, { totalHours: number; minTs: number; maxTs: number; monthlyHours: Map<string, { hours: number; minTs: number; maxTs: number }> }>();
     const etnsInData = new Set<string>();
     for (const r of data) {
       if (r.etn && r.etn !== 'Sem Agenda') etnsInData.add(r.etn);
@@ -356,33 +363,52 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
       if (!etnsInData.has(etn)) continue;
       const durStr = (a['Duracao'] || a['Duração'] || '').toString().trim();
       const hours = parseDuration(durStr);
-      const date = dateStr;
 
-      if (!etnMap.has(etn)) etnMap.set(etn, { totalHours: 0, dates: [], monthlyHours: new Map() });
+      const parts = dateStr.split('/');
+      if (parts.length < 3) continue;
+      const day = parseInt(parts[0]) || 1;
+      const month = parseInt(parts[1]) || 1;
+      const year = parseInt(parts[2]) || 2025;
+      const ts = new Date(year, month - 1, day).getTime();
+      const monthKey = `${parts[1]}/${parts[2]}`;
+
+      if (!etnMap.has(etn)) etnMap.set(etn, { totalHours: 0, minTs: Infinity, maxTs: -Infinity, monthlyHours: new Map() });
       const stats = etnMap.get(etn)!;
       stats.totalHours += hours;
-      if (date) {
-        stats.dates.push(date);
-        const parts = date.split('/');
-        if (parts.length >= 3) {
-          const monthKey = `${parts[1]}/${parts[2]}`;
-          if (!stats.monthlyHours.has(monthKey)) stats.monthlyHours.set(monthKey, { hours: 0, dates: new Set() });
-          const m = stats.monthlyHours.get(monthKey)!;
-          m.hours += hours;
-          m.dates.add(date);
-        }
-      }
+      if (ts < stats.minTs) stats.minTs = ts;
+      if (ts > stats.maxTs) stats.maxTs = ts;
+
+      if (!stats.monthlyHours.has(monthKey)) stats.monthlyHours.set(monthKey, { hours: 0, minTs: Infinity, maxTs: -Infinity });
+      const m = stats.monthlyHours.get(monthKey)!;
+      m.hours += hours;
+      if (ts < m.minTs) m.minTs = ts;
+      if (ts > m.maxTs) m.maxTs = ts;
     }
+
+    const calcBizDays = (minTs: number, maxTs: number) => {
+      if (minTs === Infinity || maxTs === -Infinity) return 0;
+      const totalDays = Math.round((maxTs - minTs) / 86400000) + 1;
+      if (totalDays <= 0) return 0;
+      const fullWeeks = Math.floor(totalDays / 7);
+      const remainDays = totalDays % 7;
+      let bd = fullWeeks * 5;
+      const startDow = new Date(minTs).getDay();
+      for (let i = 0; i < remainDays; i++) {
+        const dow = (startDow + i) % 7;
+        if (dow >= 1 && dow <= 5) bd++;
+      }
+      return bd;
+    };
 
     return Array.from(etnMap.entries())
       .filter(([, s]) => s.totalHours > 0)
       .map(([etn, s]) => {
-        const bizDays = countBusinessDays(s.dates);
+        const bizDays = calcBizDays(s.minTs, s.maxTs);
         const capacidade = bizDays * 6;
         const utilizacao = capacidade > 0 ? parseFloat(((s.totalHours / capacidade) * 100).toFixed(1)) : 0;
         const monthly: Record<string, number> = {};
         s.monthlyHours.forEach((mData, monthKey) => {
-          const monthBizDays = countBusinessDays(Array.from(mData.dates));
+          const monthBizDays = calcBizDays(mData.minTs, mData.maxTs);
           const monthCap = monthBizDays * 6;
           monthly[monthKey] = monthCap > 0 ? parseFloat(((mData.hours / monthCap) * 100).toFixed(1)) : 0;
         });
