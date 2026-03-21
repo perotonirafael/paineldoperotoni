@@ -466,13 +466,16 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     let rows = etnAvailabilityRaw.map(d => {
       const vals = heatmapMonths.map(m => d.monthly[m] ?? null).filter(v => v !== null) as number[];
       const media = vals.length > 0 ? parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)) : 0;
-      return { ...d, media };
+      // Standard deviation for consistency indicator
+      const stdDev = vals.length > 1
+        ? parseFloat(Math.sqrt(vals.reduce((sum, v) => sum + Math.pow(v - media, 2), 0) / vals.length).toFixed(1))
+        : 0;
+      return { ...d, media, stdDev };
     });
     if (hmSearch) {
       const q = hmSearch.toLowerCase();
       rows = rows.filter(d => d.etn.toLowerCase().includes(q));
     }
-    // Sort
     rows.sort((a, b) => {
       if (hmSort.key === 'etn') return hmSort.dir === 'asc' ? a.etn.localeCompare(b.etn) : b.etn.localeCompare(a.etn);
       const va = (a as any)[hmSort.key] ?? 0;
@@ -835,7 +838,11 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
               <tbody>
                 {etnAvailability.map(d => (
                   <tr key={d.etn} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="px-3 py-1.5 font-medium text-foreground">{d.etn}</td>
+                    <td className="px-3 py-1.5 font-medium text-foreground flex items-center gap-1.5">
+                      {d.utilizacao > 100 && <span title="Sobrecarregado" className="text-red-500 text-xs">⚠</span>}
+                      {d.utilizacao <= 40 && <span title="Muito ocioso" className="text-amber-500 text-xs">⏳</span>}
+                      {d.etn}
+                    </td>
                     <td className="px-3 py-1.5 text-right font-mono font-bold" style={{ color: getUtilColor(d.utilizacao) }}>{d.utilizacao}%</td>
                     <td className="px-3 py-1.5 text-right font-mono">{d.horasRegistradas}h</td>
                     <td className="px-3 py-1.5 text-right font-mono">{d.capacidade}h</td>
@@ -890,7 +897,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
             </select>
             <div className="flex items-center gap-1 ml-auto">
               <span className="text-xs font-medium text-muted-foreground">Ordenar:</span>
-              {([['media', 'Média'], ['etn', 'Nome']] as const).map(([val, label]) => (
+              {([['media', 'Média'], ['stdDev', 'Desvio'], ['etn', 'Nome']] as const).map(([val, label]) => (
                 <FilterPill key={val} active={hmSort.key === val} label={label + (hmSort.key === val ? (hmSort.dir === 'desc' ? ' ↓' : ' ↑') : '')}
                   onClick={() => setHmSort(prev => prev.key === val ? { key: val, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key: val, dir: 'desc' })} />
               ))}
@@ -907,6 +914,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                     return <th key={m} className="px-2 py-2 text-center font-medium text-muted-foreground bg-muted/50 whitespace-nowrap">{MONTH_NAMES[parseInt(mm)]}/{yy.slice(2)}</th>;
                   })}
                   <th className="px-3 py-2 text-center font-semibold text-foreground bg-muted/50">Média</th>
+                  <th className="px-3 py-2 text-center font-semibold text-foreground bg-muted/50" title="Desvio padrão — menor = mais constante">σ</th>
                 </tr>
               </thead>
               <tbody>
@@ -931,6 +939,12 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                     <td className={`px-3 py-2 text-center font-mono font-bold ${
                       d.media <= 60 ? 'text-emerald-700' : d.media <= 85 ? 'text-amber-700' : d.media <= 100 ? 'text-blue-700' : 'text-red-700'
                     }`}>{d.media}%</td>
+                    <td className="px-3 py-2 text-center font-mono text-muted-foreground" title={`Desvio padrão: ${d.stdDev}% — ${d.stdDev <= 10 ? 'Muito constante' : d.stdDev <= 20 ? 'Moderado' : 'Irregular'}`}>
+                      <span className={`inline-flex items-center gap-1 ${d.stdDev <= 10 ? 'text-emerald-600' : d.stdDev <= 20 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {d.stdDev}%
+                        <span className="text-[9px]">{d.stdDev <= 10 ? '●' : d.stdDev <= 20 ? '◐' : '○'}</span>
+                      </span>
+                    </td>
                   </tr>
                 ))}
                 {/* Footer row: monthly averages */}
@@ -947,6 +961,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                   <td className={`px-3 py-2 text-center font-mono font-bold ${getUtilBg(avgUtilAll)}`}>
                     {avgUtilAll}%
                   </td>
+                  <td className="px-3 py-2 text-center text-muted-foreground">—</td>
                 </tr>
               </tbody>
             </table>
