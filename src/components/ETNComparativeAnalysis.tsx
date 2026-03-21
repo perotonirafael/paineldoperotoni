@@ -838,7 +838,11 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
               <tbody>
                 {etnAvailability.map(d => (
                   <tr key={d.etn} className="border-t border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="px-3 py-1.5 font-medium text-foreground">{d.etn}</td>
+                    <td className="px-3 py-1.5 font-medium text-foreground flex items-center gap-1.5">
+                      {d.utilizacao > 100 && <span title="Sobrecarregado" className="text-red-500 text-xs">⚠</span>}
+                      {d.utilizacao <= 40 && <span title="Muito ocioso" className="text-amber-500 text-xs">⏳</span>}
+                      {d.etn}
+                    </td>
                     <td className="px-3 py-1.5 text-right font-mono font-bold" style={{ color: getUtilColor(d.utilizacao) }}>{d.utilizacao}%</td>
                     <td className="px-3 py-1.5 text-right font-mono">{d.horasRegistradas}h</td>
                     <td className="px-3 py-1.5 text-right font-mono">{d.capacidade}h</td>
