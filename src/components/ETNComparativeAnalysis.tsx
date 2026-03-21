@@ -466,13 +466,16 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
     let rows = etnAvailabilityRaw.map(d => {
       const vals = heatmapMonths.map(m => d.monthly[m] ?? null).filter(v => v !== null) as number[];
       const media = vals.length > 0 ? parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)) : 0;
-      return { ...d, media };
+      // Standard deviation for consistency indicator
+      const stdDev = vals.length > 1
+        ? parseFloat(Math.sqrt(vals.reduce((sum, v) => sum + Math.pow(v - media, 2), 0) / vals.length).toFixed(1))
+        : 0;
+      return { ...d, media, stdDev };
     });
     if (hmSearch) {
       const q = hmSearch.toLowerCase();
       rows = rows.filter(d => d.etn.toLowerCase().includes(q));
     }
-    // Sort
     rows.sort((a, b) => {
       if (hmSort.key === 'etn') return hmSort.dir === 'asc' ? a.etn.localeCompare(b.etn) : b.etn.localeCompare(a.etn);
       const va = (a as any)[hmSort.key] ?? 0;
