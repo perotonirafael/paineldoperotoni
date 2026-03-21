@@ -3,7 +3,7 @@ import {
   Loader, BarChart3, Trophy, XCircle, FileText, RotateCcw,
   Calendar, AlertTriangle, Search, Database, Trash2, Clock, ChevronDown } from
 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition, lazy, Suspense } from 'react';
 import { useDataProcessor, type Opportunity, type Action, type ProcessedRecord, type MissingAgendaRecord } from '@/hooks/useDataProcessor';
 import { useFileProcessor } from '@/hooks/useFileProcessor';
 import { useWorkerDataProcessor } from '@/hooks/useWorkerDataProcessor';
@@ -20,8 +20,8 @@ import { KPICard } from '@/components/KPICard';
 import { AnalyticsTable } from '@/components/AnalyticsTable';
 import { ChartsSection } from '@/components/ChartsSection';
 import { ProgressBar } from '@/components/ProgressBar';
-import { ETNDetailModal } from '@/components/ETNDetailModal';
-import { ETNComparativeAnalysis } from '@/components/ETNComparativeAnalysis';
+const ETNDetailModal = lazy(() => import('@/components/ETNDetailModal').then(m => ({ default: m.ETNDetailModal })));
+const ETNComparativeAnalysis = lazy(() => import('@/components/ETNComparativeAnalysis').then(m => ({ default: m.ETNComparativeAnalysis })));
 import { DEMO_DATA } from '@/lib/demoData';
 import { isDemoCommitmentCategory, isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
 import { saveToCache, loadFromCache, clearCache, getCacheInfo } from '@/hooks/useDataCache';
@@ -1313,13 +1313,16 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
 
         {/* Análise Comparativa de ETNs */}
         {processedData.length > 0 &&
+        <Suspense fallback={<div className="text-center py-10 text-muted-foreground"><Loader className="animate-spin mx-auto mb-2" size={24} />Carregando análise comparativa...</div>}>
         <div className="mt-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">Análise Comparativa de ETNs</h2>
             <ETNComparativeAnalysis data={filteredData} actions={filteredActions} />
           </div>
+        </Suspense>
         }
         {/* Modal de Detalhe do ETN */}
         {selectedETNDetail &&
+        <Suspense fallback={null}>
         <ETNDetailModal
           etn={selectedETNDetail}
           data={processedData}
@@ -1330,6 +1333,8 @@ export default function Home({ publishedSnapshot, hideHeader }: HomeProps = {}) 
           pedidos={pedidos}
           opportunities={opportunities}
           selectedYear={selectedGoalYear} />
+        </Suspense>
+        }
 
         }
       </div>
