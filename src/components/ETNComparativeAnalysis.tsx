@@ -893,7 +893,7 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
             </select>
             <div className="flex items-center gap-1 ml-auto">
               <span className="text-xs font-medium text-muted-foreground">Ordenar:</span>
-              {([['media', 'Média'], ['etn', 'Nome']] as const).map(([val, label]) => (
+              {([['media', 'Média'], ['stdDev', 'Desvio'], ['etn', 'Nome']] as const).map(([val, label]) => (
                 <FilterPill key={val} active={hmSort.key === val} label={label + (hmSort.key === val ? (hmSort.dir === 'desc' ? ' ↓' : ' ↑') : '')}
                   onClick={() => setHmSort(prev => prev.key === val ? { key: val, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key: val, dir: 'desc' })} />
               ))}
