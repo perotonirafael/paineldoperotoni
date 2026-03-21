@@ -20,7 +20,7 @@ import { KPICard } from '@/components/KPICard';
 import { AnalyticsTable } from '@/components/AnalyticsTable';
 import { ChartsSection } from '@/components/ChartsSection';
 import { ProgressBar } from '@/components/ProgressBar';
-const ETNDetailModal = lazy(() => import('@/components/ETNDetailModal').then(m => ({ default: m.default || m.ETNDetailModal })));
+const ETNDetailModal = lazy(() => import('@/components/ETNDetailModal').then(m => ({ default: m.ETNDetailModal })));
 const ETNComparativeAnalysis = lazy(() => import('@/components/ETNComparativeAnalysis').then(m => ({ default: m.ETNComparativeAnalysis })));
 import { DEMO_DATA } from '@/lib/demoData';
 import { isDemoCommitmentCategory, isEligibleCommitmentCategory } from '@/lib/commitmentCategories';
