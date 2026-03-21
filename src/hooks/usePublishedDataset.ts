@@ -14,8 +14,8 @@ export interface PublishedSnapshot {
   workerResult: any;
   goals: any[];
   pedidos: any[];
-  rawOpportunities: any[];
-  rawActions: any[];
+  rawOpportunities?: any[];
+  rawActions?: any[];
 }
 
 export function usePublishedDataset() {
@@ -81,14 +81,20 @@ export function usePublishedDataset() {
 
         const text = await fileData.text();
         const parsed = JSON.parse(text);
+        const slimSnapshot: PublishedSnapshot = {
+          workerResult: parsed.workerResult ?? null,
+          goals: parsed.goals ?? [],
+          pedidos: parsed.pedidos ?? [],
+        };
+
         console.log('[PUBLISHED] Snapshot loaded:', {
-          hasWorkerResult: !!parsed.workerResult,
-          goalsCount: parsed.goals?.length ?? 0,
-          pedidosCount: parsed.pedidos?.length ?? 0,
+          hasWorkerResult: !!slimSnapshot.workerResult,
+          goalsCount: slimSnapshot.goals.length,
+          pedidosCount: slimSnapshot.pedidos.length,
           rawOpportunitiesCount: parsed.rawOpportunities?.length ?? 0,
           rawActionsCount: parsed.rawActions?.length ?? 0,
         });
-        setSnapshot(parsed);
+        setSnapshot(slimSnapshot);
       }
     } catch (err) {
       console.error('[PUBLISHED] Error loading:', err);
