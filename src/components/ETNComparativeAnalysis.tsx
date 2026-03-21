@@ -935,6 +935,12 @@ export function ETNComparativeAnalysis({ data, actions }: Props) {
                     <td className={`px-3 py-2 text-center font-mono font-bold ${
                       d.media <= 60 ? 'text-emerald-700' : d.media <= 85 ? 'text-amber-700' : d.media <= 100 ? 'text-blue-700' : 'text-red-700'
                     }`}>{d.media}%</td>
+                    <td className="px-3 py-2 text-center font-mono text-muted-foreground" title={`Desvio padrão: ${d.stdDev}% — ${d.stdDev <= 10 ? 'Muito constante' : d.stdDev <= 20 ? 'Moderado' : 'Irregular'}`}>
+                      <span className={`inline-flex items-center gap-1 ${d.stdDev <= 10 ? 'text-emerald-600' : d.stdDev <= 20 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {d.stdDev}%
+                        <span className="text-[9px]">{d.stdDev <= 10 ? '●' : d.stdDev <= 20 ? '◐' : '○'}</span>
+                      </span>
+                    </td>
                   </tr>
                 ))}
                 {/* Footer row: monthly averages */}
